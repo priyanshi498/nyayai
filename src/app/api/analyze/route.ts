@@ -23,7 +23,7 @@ export async function POST(request: Request) {
 
     // Initialize Gemini API
     const genAI = new GoogleGenerativeAI(effectiveKey);
-    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+    const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
 
     // Step 1: Agent 1 - Classifier
     console.log('Running Classifier Agent...');
