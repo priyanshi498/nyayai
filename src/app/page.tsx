@@ -21,8 +21,12 @@ import {
   Moon,
   Sun,
   Shield,
-  HelpCircle,
-  AlertCircle
+  MessageSquare,
+  BarChart3,
+  Check,
+  User,
+  Building,
+  DollarSign
 } from 'lucide-react';
 
 interface Classification {
@@ -30,6 +34,12 @@ interface Classification {
   severity: string;
   keyEntities: string[];
   summary: string;
+}
+
+interface ChatMessage {
+  sender: 'user' | 'bot';
+  text: string;
+  time: string;
 }
 
 interface AnalysisResult {
@@ -50,6 +60,8 @@ interface AnalysisResult {
     customAmount?: string;
     customProperty?: string;
   };
+  completedSteps?: boolean[];
+  chatLogs?: ChatMessage[];
 }
 
 const MOCK_LANDLORD_RESPONSE = {
@@ -296,18 +308,39 @@ function MarkdownViewer({ text }: { text: string }) {
   return <div className="legal-prose">{rendered}</div>;
 }
 
+// Parses markdown action plan into structured timeline steps
+function parseChecklistSteps(actionPlanText: string): string[] {
+  if (!actionPlanText) return [];
+  const lines = actionPlanText.split('\n');
+  const steps: string[] = [];
+  for (let line of lines) {
+    line = line.trim();
+    const match = line.match(/^(\d+\.\s+|- \s+|\*\s+)(.*)/);
+    if (match) {
+      steps.push(match[2].replace(/\*\*/g, ''));
+    }
+  }
+  if (steps.length === 0) {
+    return lines.filter(l => l.trim().length > 10).map(l => l.trim().replace(/\*\*/g, ''));
+  }
+  return steps;
+}
+
 export default function Home() {
   const [problem, setProblem] = useState('');
   const [language, setLanguage] = useState('en');
   const [userApiKey, setUserApiKey] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [currentStep, setCurrentStep] = useState(0);
-  const [activeTab, setActiveTab] = useState<'overview' | 'rights' | 'action' | 'document'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'rights' | 'action' | 'document' | 'chat'>('overview');
   
   const [showSettings, setShowSettings] = useState(false);
   const [history, setHistory] = useState<AnalysisResult[]>([]);
   const [activeCaseId, setActiveCaseId] = useState<string | null>(null);
   
+  // Customizer Form Tab Selection
+  const [customizerTab, setCustomizerTab] = useState<'sender' | 'opposite' | 'value'>('sender');
+
   // Notice Customizer Fields
   const [senderName, setSenderName] = useState('');
   const [senderAddress, setSenderAddress] = useState('');
@@ -326,6 +359,11 @@ export default function Home() {
   // Agent thoughts log during loading
   const [agentLogs, setAgentLogs] = useState<string[]>([]);
   const logsEndRef = useRef<HTMLDivElement>(null);
+
+  // Chat conversational states
+  const [chatMessage, setChatMessage] = useState('');
+  const [isChatLoading, setIsChatLoading] = useState(false);
+  const chatBottomRef = useRef<HTMLDivElement>(null);
 
   // Load configuration and history on mount
   useEffect(() => {
@@ -385,6 +423,13 @@ export default function Home() {
       logsEndRef.current.scrollIntoView({ behavior: 'smooth' });
     }
   }, [agentLogs]);
+
+  // Scroll chat messages to bottom
+  useEffect(() => {
+    if (chatBottomRef.current) {
+      chatBottomRef.current.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [isChatLoading, activeCaseId, activeTab]);
 
   // Update document content when customization fields change
   useEffect(() => {
@@ -503,6 +548,20 @@ export default function Home() {
     setActiveTab('overview');
   };
 
+  const updateCaseInHistory = (updates: Partial<AnalysisResult>) => {
+    if (!activeCaseId) return;
+    setHistory(prev => {
+      const idx = prev.findIndex(c => c.id === activeCaseId);
+      if (idx !== -1) {
+        const updated = [...prev];
+        updated[idx] = { ...updated[idx], ...updates };
+        localStorage.setItem('nyayai_cases', JSON.stringify(updated));
+        return updated;
+      }
+      return prev;
+    });
+  };
+
   const deleteCase = (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
     const updated = history.filter(c => c.id !== id);
@@ -526,7 +585,6 @@ export default function Home() {
 
   const runAnalysis = async (forceDemo = false) => {
     const apiToUse = userApiKey.trim();
-    // Do not block; let the backend attempt to use its configured key if the user has not pasted one locally.
 
     setIsLoading(true);
     setCurrentStep(1);
@@ -545,7 +603,7 @@ export default function Home() {
 
     try {
       if (forceDemo) {
-        await stepsTimer(1, 1000, [
+        await stepsTimer(1, 800, [
           '[Classifier] Starting classification check...',
           '[Classifier] Scanning user input tokens for legal triggers...',
           '[Classifier] Match found: "deposit", "landlord", "3 mahine".',
@@ -553,32 +611,23 @@ export default function Home() {
           '[Classifier] Severity assigned: Medium. Handing off to RAG Retriever...'
         ]);
         
-        await stepsTimer(2, 1000, [
+        await stepsTimer(2, 800, [
           '[RAG] Analyzing semantic keywords...',
-          '[RAG] Fallback Keyword indexing loaded.',
-          '[RAG] Retrieving statutory articles matching "Tenant" and "Deposit"...',
-          '[RAG] Retrieved 1 source: Section 11 of Model Tenancy Act, 2021.',
           '[RAG] Grounded context compiled. Handing off to Rights Explainer...'
         ]);
         
-        await stepsTimer(3, 1000, [
+        await stepsTimer(3, 800, [
           '[Explainer] Translating statutory structures...',
-          '[Explainer] Constructing explanation layout in English...',
-          '[Explainer] Formulated rights under Indian tenancy codes.',
-          '[Explainer] Rights explanation generated. Handing off to Action Planner...'
+          '[Explainer] Formulated rights under Indian tenancy codes.'
         ]);
         
-        await stepsTimer(4, 1000, [
+        await stepsTimer(4, 800, [
           '[Planner] Loading litigation rules & authority listings...',
-          '[Planner] Extracting relevant legal helplines & timelines...',
-          '[Planner] Compiled step-by-step litigation procedure.',
           '[Planner] Action guidelines completed. Handing off to Document Drafter...'
         ]);
         
-        await stepsTimer(5, 1000, [
+        await stepsTimer(5, 800, [
           '[Drafter] Drafting formal legal documents...',
-          '[Drafter] Formatting notice body under Section 11, MTA.',
-          '[Drafter] Document successfully formatted with customizable fields.',
           '[System] Legal Consultation successfully built!'
         ]);
         
@@ -599,7 +648,9 @@ export default function Home() {
             oppositeAddress: '',
             customAmount: '20,000',
             customProperty: 'Flat 302, Green Apartments, Delhi'
-          }
+          },
+          completedSteps: [false, false, false],
+          chatLogs: []
         };
 
         const updatedHistory = [newCase, ...history];
@@ -607,7 +658,6 @@ export default function Home() {
         localStorage.setItem('nyayai_cases', JSON.stringify(updatedHistory));
         loadCase(newCase);
       } else {
-        // Run actual API call with simulated concurrent logs to keep user engaged
         const logTimer = setInterval(() => {
           const simulatorThoughts = [
             '[Classifier] Checking text linguistic properties...',
@@ -651,15 +701,7 @@ export default function Home() {
           throw new Error(data.error || 'Failed to analyze case');
         }
 
-        setAgentLogs(prev => [
-          ...prev, 
-          `[Classifier] Domain resolved: ${data.classification.domain}`,
-          '[RAG] Match found in local vector documents.',
-          '[Explainer] Custom rights draft synthesized successfully.',
-          '[Planner] Checklist timeline generated.',
-          '[Drafter] Notice document fully constructed.',
-          '[System] Analysis finished.'
-        ]);
+        const stepsCount = parseChecklistSteps(data.actionPlan).length;
 
         const newCase: AnalysisResult = {
           id: Date.now().toString(),
@@ -678,7 +720,9 @@ export default function Home() {
             oppositeAddress,
             customAmount,
             customProperty
-          }
+          },
+          completedSteps: Array(stepsCount).fill(false),
+          chatLogs: []
         };
 
         const updatedHistory = [newCase, ...history];
@@ -694,6 +738,51 @@ export default function Home() {
     } finally {
       setIsLoading(false);
       setCurrentStep(0);
+    }
+  };
+
+  const handleSendChatMessage = async () => {
+    if (!chatMessage.trim() || !activeCaseId || !activeCase) return;
+
+    const newMsg: ChatMessage = { 
+      sender: 'user', 
+      text: chatMessage, 
+      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) 
+    };
+
+    const currentChat = activeCase.chatLogs || [];
+    const updatedChat = [...currentChat, newMsg];
+
+    updateCaseInHistory({ chatLogs: updatedChat });
+    setChatMessage('');
+    setIsChatLoading(true);
+
+    try {
+      const response = await fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          problem: activeCase.problem,
+          history: currentChat,
+          message: newMsg.text,
+          userApiKey: userApiKey.trim()
+        })
+      });
+
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Failed to get chat response');
+
+      const botReply: ChatMessage = {
+        sender: 'bot',
+        text: data.reply,
+        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      };
+
+      updateCaseInHistory({ chatLogs: [...updatedChat, botReply] });
+    } catch (err: any) {
+      alert(`Chat failed: ${err.message}`);
+    } finally {
+      setIsChatLoading(false);
     }
   };
 
@@ -715,18 +804,15 @@ export default function Home() {
 
       const pageHeight = doc.internal.pageSize.getHeight();
       const pageWidth = doc.internal.pageSize.getWidth();
-      const margin = 20; // 20mm margins
+      const margin = 20;
       const maxLineWidth = pageWidth - (margin * 2);
 
-      // Split text to fit page width
       const splitText = doc.splitTextToSize(documentContent, maxLineWidth);
       
-      // Document header
       doc.setFont('times', 'bold');
       doc.setFontSize(14);
       doc.text('FORMAL LEGAL NOTICE', pageWidth / 2, margin, { align: 'center' });
       
-      // Header divider line
       doc.setLineWidth(0.5);
       doc.line(margin, margin + 4, pageWidth - margin, margin + 4);
       
@@ -744,7 +830,6 @@ export default function Home() {
         
         const line = splitText[i];
         
-        // Dynamic formatting rules for PDF styling
         if (
           line.startsWith('SUBJECT:') || 
           line.startsWith('Dear Sir') || 
@@ -763,11 +848,39 @@ export default function Home() {
       doc.save(`nyayai_legal_notice_${activeCaseId || 'draft'}.pdf`);
     } catch (e) {
       console.error('PDF Generation failed', e);
-      alert('Failed to generate PDF. You can copy the text manually from the editor.');
+      alert('Failed to generate PDF. You can copy the text manually.');
     }
   };
 
+  const handleTimelineCheckboxChange = (idx: number) => {
+    if (!activeCase) return;
+    const currentCompleted = [...(activeCase.completedSteps || [])];
+    currentCompleted[idx] = !currentCompleted[idx];
+    updateCaseInHistory({ completedSteps: currentCompleted });
+  };
+
   const activeCase = history.find(c => c.id === activeCaseId);
+
+  // Compute Dashboard Landing Statistics
+  const totalConsultations = history.length;
+  const domainCounts = history.reduce((acc: any, item) => {
+    const d = item.classification.domain;
+    acc[d] = (acc[d] || 0) + 1;
+    return acc;
+  }, {});
+  
+  const highSeverityCount = history.filter(item => item.classification.severity.toLowerCase() === 'high').length;
+  const medSeverityCount = history.filter(item => item.classification.severity.toLowerCase() === 'medium').length;
+  const lowSeverityCount = history.filter(item => item.classification.severity.toLowerCase() === 'low').length;
+
+  const averageProgress = totalConsultations > 0 
+    ? Math.round(history.reduce((sum, item) => {
+        const steps = item.completedSteps || [];
+        if (steps.length === 0) return sum;
+        const done = steps.filter(Boolean).length;
+        return sum + (done / steps.length) * 100;
+      }, 0) / totalConsultations)
+    : 0;
 
   return (
     <div className="app-container" style={{ display: 'flex', height: '100vh', width: '100vw', overflow: 'hidden' }}>
@@ -946,25 +1059,60 @@ export default function Home() {
           <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflowY: 'auto', padding: '1.5rem 2rem' }}>
             
             {!activeCase && !isLoading ? (
-              // Empty State Input Form
-              <div className="animate-slide" style={{ maxWidth: '680px', margin: '1.5rem auto', width: '100%' }}>
+              // Empty State Landing Form with Dashboard Statistics
+              <div className="animate-slide" style={{ maxWidth: '800px', margin: '0 auto', width: '100%' }}>
                 
+                {/* Dashboard Stats Panel */}
+                {totalConsultations > 0 && (
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1rem', marginBottom: '2rem' }}>
+                    <div className="metric-card glass">
+                      <div className="metric-icon-wrap">
+                        <Scale size={20} color="var(--accent-primary)" />
+                      </div>
+                      <div>
+                        <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase' }}>Cases Logged</span>
+                        <h4 style={{ fontSize: '1.35rem', color: 'var(--text-primary)', margin: 0, fontWeight: 700 }}>{totalConsultations}</h4>
+                      </div>
+                    </div>
+                    
+                    <div className="metric-card glass">
+                      <div className="metric-icon-wrap" style={{ backgroundColor: 'rgba(16, 185, 129, 0.15)' }}>
+                        <CheckSquare size={20} color="var(--accent-success)" />
+                      </div>
+                      <div>
+                        <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase' }}>Avg Action Progress</span>
+                        <h4 style={{ fontSize: '1.35rem', color: 'var(--text-primary)', margin: 0, fontWeight: 700 }}>{averageProgress}%</h4>
+                      </div>
+                    </div>
+                    
+                    <div className="metric-card glass">
+                      <div className="metric-icon-wrap" style={{ backgroundColor: 'rgba(245, 158, 11, 0.15)' }}>
+                        <BarChart3 size={20} color="var(--accent-warning)" />
+                      </div>
+                      <div>
+                        <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase' }}>High Severity Cases</span>
+                        <h4 style={{ fontSize: '1.35rem', color: 'var(--text-primary)', margin: 0, fontWeight: 700 }}>{highSeverityCount}</h4>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
                 {/* SVG Legal Crest Logo */}
-                <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '1.5rem' }}>
-                  <div style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', width: '80px', height: '80px', borderRadius: '50%', background: 'var(--accent-glow)' }}>
-                    <Shield size={36} color="var(--accent-primary)" style={{ opacity: 0.9 }} />
-                    <Scale size={20} color="var(--accent-primary)" style={{ position: 'absolute' }} />
+                <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '1rem' }}>
+                  <div style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', width: '70px', height: '70px', borderRadius: '50%', background: 'var(--accent-glow)' }}>
+                    <Shield size={32} color="var(--accent-primary)" style={{ opacity: 0.9 }} />
+                    <Scale size={18} color="var(--accent-primary)" style={{ position: 'absolute' }} />
                   </div>
                 </div>
 
-                <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
-                  <h3 style={{ fontSize: '1.65rem', color: 'var(--text-primary)', marginBottom: '0.5rem', fontWeight: 700 }}>Describe your legal issue</h3>
-                  <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', maxWidth: '520px', margin: '0 auto' }}>
+                <div style={{ textAlign: 'center', marginBottom: '1.5rem' }}>
+                  <h3 style={{ fontSize: '1.5rem', color: 'var(--text-primary)', marginBottom: '0.25rem', fontWeight: 700 }}>Describe your legal issue</h3>
+                  <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', maxWidth: '520px', margin: '0 auto' }}>
                     State your legal grievance in simple language (Hindi, English, or Hinglish). NyayAI will match relevant statutes and compile a notice.
                   </p>
                 </div>
 
-                <div className="glass" style={{ borderRadius: 'var(--radius-md)', padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                <div className="glass" style={{ borderRadius: 'var(--radius-md)', padding: '1.25rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                   
                   {/* Speech input status indicators */}
                   {isRecording && (
@@ -987,12 +1135,12 @@ export default function Home() {
                     placeholder="Example: Landlord is refusing to return my security deposit of Rs. 20,000 for the last 3 months, even though I vacated the flat and cleared all electricity bills..."
                     style={{
                       width: '100%',
-                      minHeight: '140px',
+                      minHeight: '120px',
                       resize: 'vertical',
                       border: 'none',
                       background: 'transparent',
                       color: 'var(--text-primary)',
-                      fontSize: '0.925rem',
+                      fontSize: '0.9rem',
                       lineHeight: '1.6',
                       padding: 0
                     }}
@@ -1009,17 +1157,17 @@ export default function Home() {
                           background: isRecording ? 'var(--accent-danger)' : 'var(--bg-tertiary)',
                           border: 'none',
                           color: isRecording ? '#fff' : 'var(--text-secondary)',
-                          padding: '0.5rem 0.85rem',
+                          padding: '0.45rem 0.75rem',
                           borderRadius: 'var(--radius-sm)',
                           cursor: 'pointer',
                           display: 'flex',
                           alignItems: 'center',
-                          gap: '0.4rem',
-                          fontSize: '0.8rem',
+                          gap: '0.35rem',
+                          fontSize: '0.78rem',
                           fontWeight: 600
                         }}
                       >
-                        <Mic size={14} color={isRecording ? '#fff' : 'var(--accent-danger)'} /> 
+                        <Mic size={13} color={isRecording ? '#fff' : 'var(--accent-danger)'} /> 
                         {isRecording ? 'Stop Recording' : 'Voice Input'}
                       </button>
 
@@ -1031,10 +1179,10 @@ export default function Home() {
                           background: 'transparent',
                           border: '1px solid var(--border-color)',
                           color: 'var(--text-muted)',
-                          padding: '0.5rem 0.85rem',
+                          padding: '0.45rem 0.75rem',
                           borderRadius: 'var(--radius-sm)',
                           cursor: 'pointer',
-                          fontSize: '0.8rem'
+                          fontSize: '0.78rem'
                         }}
                       >
                         Simulate Voice
@@ -1049,11 +1197,11 @@ export default function Home() {
                           background: 'transparent',
                           border: '1px solid var(--border-color)',
                           color: 'var(--text-secondary)',
-                          padding: '0.5rem 1rem',
+                          padding: '0.45rem 0.9rem',
                           borderRadius: 'var(--radius-sm)',
                           cursor: 'pointer',
                           fontWeight: 600,
-                          fontSize: '0.8rem'
+                          fontSize: '0.78rem'
                         }}
                       >
                         Demo Case
@@ -1066,44 +1214,44 @@ export default function Home() {
                           background: 'var(--accent-primary)',
                           color: '#fff',
                           border: 'none',
-                          padding: '0.5rem 1.25rem',
+                          padding: '0.45rem 1.15rem',
                           borderRadius: 'var(--radius-sm)',
                           cursor: 'pointer',
                           fontWeight: 700,
-                          fontSize: '0.8rem',
+                          fontSize: '0.78rem',
                           display: 'flex',
                           alignItems: 'center',
-                          gap: '0.4rem',
+                          gap: '0.35rem',
                           opacity: problem.trim() ? 1 : 0.6
                         }}
                       >
-                        Analyze Case <Send size={12} />
+                        Analyze Case <Send size={11} />
                       </button>
                     </div>
                   </div>
                 </div>
 
                 {/* Common Scenarios Supported */}
-                <div style={{ marginTop: '2.5rem' }}>
-                  <h4 style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.35rem', fontWeight: 700 }}>
-                    <Info size={12} /> Common Legal Scenarios
+                <div style={{ marginTop: '2rem' }}>
+                  <h4 style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.65rem', display: 'flex', alignItems: 'center', gap: '0.3rem', fontWeight: 700 }}>
+                    <Info size={11} /> Common Legal Scenarios
                   </h4>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
                     <div 
                       className="glass history-item" 
-                      style={{ padding: '0.85rem', borderRadius: 'var(--radius-sm)', cursor: 'pointer' }} 
+                      style={{ padding: '0.75rem', borderRadius: 'var(--radius-sm)', cursor: 'pointer' }} 
                       onClick={() => setProblem('I was fired from my office without any notice, and they have withheld my last month salary and FnF clearances.')}
                     >
-                      <span style={{ fontSize: '0.75rem', color: 'var(--accent-primary)', fontWeight: 700, display: 'block' }}>Labor Dispute</span>
-                      <p style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', marginTop: '0.2rem', lineHeight: '1.4' }}>Salary withholding & termination without notice.</p>
+                      <span style={{ fontSize: '0.72rem', color: 'var(--accent-primary)', fontWeight: 700, display: 'block' }}>Labor Dispute</span>
+                      <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '0.2rem', lineHeight: '1.4' }}>Salary withholding & termination without notice.</p>
                     </div>
                     <div 
                       className="glass history-item" 
-                      style={{ padding: '0.85rem', borderRadius: 'var(--radius-sm)', cursor: 'pointer' }} 
+                      style={{ padding: '0.75rem', borderRadius: 'var(--radius-sm)', cursor: 'pointer' }} 
                       onClick={() => setProblem('Maine Amazon se ek smart TV order kiya tha Rs. 35,000 ka, screen damaged aayi and policy hone ke baat bhi product return ya refund reject kar diya.')}
                     >
-                      <span style={{ fontSize: '0.75rem', color: 'var(--accent-primary)', fontWeight: 700, display: 'block' }}>Consumer Grievance</span>
-                      <p style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', marginTop: '0.2rem', lineHeight: '1.4' }}>Damaged goods refund rejection by vendor.</p>
+                      <span style={{ fontSize: '0.72rem', color: 'var(--accent-primary)', fontWeight: 700, display: 'block' }}>Consumer Grievance</span>
+                      <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '0.2rem', lineHeight: '1.4' }}>Damaged goods refund rejection by vendor.</p>
                     </div>
                   </div>
                 </div>
@@ -1188,7 +1336,8 @@ export default function Home() {
                     { id: 'overview', label: 'Case Overview', icon: Scale },
                     { id: 'rights', label: 'Rights Explained', icon: Info },
                     { id: 'action', label: 'Action Checklist', icon: CheckSquare },
-                    { id: 'document', label: 'Drafted Document', icon: FileText }
+                    { id: 'document', label: 'Drafted Document', icon: FileText },
+                    { id: 'chat', label: 'Follow-Up Chat', icon: MessageSquare }
                   ].map(tab => {
                     const IconComp = tab.icon;
                     const isActive = activeTab === tab.id;
@@ -1284,18 +1433,96 @@ export default function Home() {
                   </div>
                 )}
 
+                {/* Enhanced Action Timeline tab */}
                 {activeTab === 'action' && activeCase && (
-                  <div className="animate-slide glass" style={{ padding: '1.5rem 2rem', borderRadius: 'var(--radius-md)', overflowX: 'auto' }}>
-                    <MarkdownViewer text={activeCase.actionPlan} />
+                  <div className="animate-slide" style={{ display: 'flex', gap: '1.5rem', alignItems: 'flex-start' }}>
+                    
+                    {/* Left: Progress Circular Display */}
+                    <div className="glass" style={{ width: '240px', padding: '1.5rem', borderRadius: 'var(--radius-md)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem', textAlign: 'center' }}>
+                      <h4 style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase' }}>Timeline Progress</h4>
+                      
+                      {/* CSS progress ring */}
+                      {(() => {
+                        const steps = parseChecklistSteps(activeCase.actionPlan);
+                        const done = (activeCase.completedSteps || []).filter(Boolean).length;
+                        const percent = steps.length > 0 ? Math.round((done / steps.length) * 100) : 0;
+                        const radius = 50;
+                        const circumference = 2 * Math.PI * radius;
+                        const offset = circumference - (percent / 100) * circumference;
+
+                        return (
+                          <div style={{ position: 'relative', width: '120px', height: '120px' }}>
+                            <svg width="120" height="120" className="progress-ring">
+                              <circle stroke="var(--bg-tertiary)" strokeWidth="8" fill="transparent" r={radius} cx="60" cy="60" />
+                              <circle 
+                                stroke="var(--accent-success)" 
+                                strokeWidth="8" 
+                                strokeDasharray={circumference}
+                                strokeDashoffset={offset}
+                                strokeLinecap="round"
+                                fill="transparent" 
+                                r={radius} 
+                                cx="60" 
+                                cy="60" 
+                                className="progress-ring-circle"
+                              />
+                            </svg>
+                            <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column' }}>
+                              <span style={{ fontSize: '1.5rem', fontWeight: 700, color: 'var(--text-primary)' }}>{percent}%</span>
+                              <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>{done}/{steps.length} Steps</span>
+                            </div>
+                          </div>
+                        );
+                      })()}
+                      
+                      <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', lineHeight: '1.4' }}>
+                        Check off steps as you proceed with your case. This keeps your timeline organized.
+                      </p>
+                    </div>
+
+                    {/* Right: Timeline list */}
+                    <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+                      {parseChecklistSteps(activeCase.actionPlan).map((step, idx) => {
+                        const isChecked = !!(activeCase.completedSteps || [])[idx];
+                        return (
+                          <div key={idx} className={`timeline-step ${isChecked ? 'checked' : ''}`}>
+                            <div className="timeline-connector" />
+                            <div 
+                              onClick={() => handleTimelineCheckboxChange(idx)}
+                              className={`timeline-badge ${isChecked ? 'badge-done' : idx === (activeCase.completedSteps || []).findIndex(x => !x) ? 'badge-active' : 'badge-pending'}`}
+                              style={{ cursor: 'pointer' }}
+                            >
+                              {isChecked ? <Check size={12} /> : idx + 1}
+                            </div>
+                            
+                            <div className="timeline-content" style={{ display: 'flex', alignItems: 'flex-start', gap: '0.75rem' }}>
+                              <input 
+                                type="checkbox" 
+                                checked={isChecked}
+                                onChange={() => handleTimelineCheckboxChange(idx)}
+                                style={{ marginTop: '3px', cursor: 'pointer', accentColor: 'var(--accent-success)' }} 
+                              />
+                              <div style={{ flex: 1 }}>
+                                <p style={{ margin: 0, fontSize: '0.88rem', color: isChecked ? 'var(--text-muted)' : 'var(--text-secondary)', textDecoration: isChecked ? 'line-through' : 'none' }}>
+                                  {step}
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+
                   </div>
                 )}
 
+                {/* Enhanced Document Tab with paper view and customizer wizard */}
                 {activeTab === 'document' && activeCase && (
                   <div className="animate-slide" style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
                     
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
-                        Customize properties inside the document using the left customizer toolbar.
+                        Fill out details in the tabs below. The legal notice draft will update dynamically in real time.
                       </p>
                       
                       <div style={{ display: 'flex', gap: '0.5rem' }}>
@@ -1316,7 +1543,7 @@ export default function Home() {
                             fontSize: '0.8rem'
                           }}
                         >
-                          <Copy size={13} /> Copy Text
+                          <Copy size={13} /> Copy Notice
                         </button>
                         <button 
                           onClick={handleDownloadPDF}
@@ -1340,67 +1567,194 @@ export default function Home() {
                       </div>
                     </div>
 
-                    <div style={{ display: 'flex', gap: '1.25rem', alignItems: 'flex-start' }}>
+                    <div style={{ display: 'flex', gap: '1.5rem', alignItems: 'flex-start' }}>
                       
-                      {/* Notice Customizer Form */}
-                      <div className="glass" style={{ width: '310px', padding: '1.25rem', borderRadius: 'var(--radius-md)', display: 'flex', flexDirection: 'column', gap: '0.85rem', height: 'fit-content' }}>
+                      {/* Notice Customizer Form Wizard */}
+                      <div className="glass" style={{ width: '320px', padding: '1rem', borderRadius: 'var(--radius-md)', display: 'flex', flexDirection: 'column', gap: '1rem', height: 'fit-content' }}>
                         <h4 style={{ fontSize: '0.9rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.4rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-                          <Settings size={14} color="var(--accent-primary)" /> Customizer Tool
+                          <Settings size={14} color="var(--accent-primary)" /> Wizard Editor
                         </h4>
                         
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem' }}>
-                          <label style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-secondary)' }}>Your Name</label>
-                          <input type="text" value={senderName} onChange={(e) => setSenderName(e.target.value)} placeholder="E.g., Rahul Kumar" style={{ padding: '0.45rem 0.65rem' }} />
-                        </div>
-
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem' }}>
-                          <label style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-secondary)' }}>Your Address</label>
-                          <input type="text" value={senderAddress} onChange={(e) => setSenderAddress(e.target.value)} placeholder="Your full address" style={{ padding: '0.45rem 0.65rem' }} />
-                        </div>
-
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem' }}>
-                          <label style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-secondary)' }}>Opposite Party Name</label>
-                          <input type="text" value={oppositeName} onChange={(e) => setOppositeName(e.target.value)} placeholder="E.g., Ramesh (Landlord)" style={{ padding: '0.45rem 0.65rem' }} />
-                        </div>
-
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem' }}>
-                          <label style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-secondary)' }}>Opposite Party Address</label>
-                          <input type="text" value={oppositeAddress} onChange={(e) => setOppositeAddress(e.target.value)} placeholder="Opposite party address" style={{ padding: '0.45rem 0.65rem' }} />
-                        </div>
-
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem' }}>
-                          <label style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-secondary)' }}>Claim Amount (Rs.)</label>
-                          <input type="text" value={customAmount} onChange={(e) => setCustomAmount(e.target.value)} placeholder="E.g., 20,000" style={{ padding: '0.45rem 0.65rem' }} />
+                        {/* Wizard Subtabs */}
+                        <div style={{ display: 'flex', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.25rem', gap: '0.5rem' }}>
+                          {[
+                            { id: 'sender', label: 'Sender', icon: User },
+                            { id: 'opposite', label: 'Respondent', icon: Building },
+                            { id: 'value', label: 'Claim', icon: DollarSign }
+                          ].map(t => {
+                            const IconC = t.icon;
+                            const isSubActive = customizerTab === t.id;
+                            return (
+                              <button
+                                key={t.id}
+                                onClick={() => setCustomizerTab(t.id as any)}
+                                style={{
+                                  flex: 1,
+                                  background: 'transparent',
+                                  border: 'none',
+                                  borderBottom: isSubActive ? '2px solid var(--accent-primary)' : 'none',
+                                  color: isSubActive ? 'var(--accent-primary)' : 'var(--text-muted)',
+                                  paddingBottom: '0.25rem',
+                                  fontSize: '0.7rem',
+                                  fontWeight: 700,
+                                  cursor: 'pointer',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  gap: '0.25rem'
+                                }}
+                              >
+                                <IconC size={11} /> {t.label}
+                              </button>
+                            );
+                          })}
                         </div>
                         
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem' }}>
-                          <label style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-secondary)' }}>Property/Transaction Location</label>
-                          <input type="text" value={customProperty} onChange={(e) => setCustomProperty(e.target.value)} placeholder="E.g., Flat 302, Green Apts" style={{ padding: '0.45rem 0.65rem' }} />
-                        </div>
+                        {/* Wizard Tab Inputs */}
+                        {customizerTab === 'sender' && (
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }} className="animate-slide">
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem' }}>
+                              <label style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-secondary)' }}>Your Full Name</label>
+                              <input type="text" value={senderName} onChange={(e) => setSenderName(e.target.value)} placeholder="E.g., Rahul Kumar" style={{ padding: '0.45rem 0.65rem' }} />
+                            </div>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem' }}>
+                              <label style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-secondary)' }}>Your Address</label>
+                              <textarea value={senderAddress} onChange={(e) => setSenderAddress(e.target.value)} placeholder="Your full legal address" style={{ padding: '0.45rem 0.65rem', minHeight: '60px', resize: 'vertical' }} />
+                            </div>
+                          </div>
+                        )}
+
+                        {customizerTab === 'opposite' && (
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }} className="animate-slide">
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem' }}>
+                              <label style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-secondary)' }}>Respondent Name</label>
+                              <input type="text" value={oppositeName} onChange={(e) => setOppositeName(e.target.value)} placeholder="E.g., Star Electronics Ltd" style={{ padding: '0.45rem 0.65rem' }} />
+                            </div>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem' }}>
+                              <label style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-secondary)' }}>Respondent Address</label>
+                              <textarea value={oppositeAddress} onChange={(e) => setOppositeAddress(e.target.value)} placeholder="Respondent's office/home address" style={{ padding: '0.45rem 0.65rem', minHeight: '60px', resize: 'vertical' }} />
+                            </div>
+                          </div>
+                        )}
+
+                        {customizerTab === 'value' && (
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }} className="animate-slide">
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem' }}>
+                              <label style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-secondary)' }}>Claim Value (Rs.)</label>
+                              <input type="text" value={customAmount} onChange={(e) => setCustomAmount(e.target.value)} placeholder="E.g., 35,000" style={{ padding: '0.45rem 0.65rem' }} />
+                            </div>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem' }}>
+                              <label style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-secondary)' }}>Transaction / Property Location</label>
+                              <input type="text" value={customProperty} onChange={(e) => setCustomProperty(e.target.value)} placeholder="E.g., Sector 15, Noida" style={{ padding: '0.45rem 0.65rem' }} />
+                            </div>
+                          </div>
+                        )}
                       </div>
 
-                      {/* Notice Document Text Editor */}
-                      <div className="glass" style={{ flex: 1, padding: '1.25rem', borderRadius: 'var(--radius-md)' }}>
-                        <textarea
-                          value={documentContent}
-                          onChange={(e) => setDocumentContent(e.target.value)}
-                          style={{
-                            width: '100%',
-                            minHeight: '460px',
-                            background: '#ffffff',
-                            color: '#1e293b',
-                            border: '1px solid var(--border-color)',
-                            borderRadius: '6px',
-                            padding: '1.25rem',
-                            fontFamily: 'Courier, monospace',
-                            fontSize: '0.85rem',
-                            lineHeight: '1.6',
-                            resize: 'vertical'
-                          }}
-                        />
+                      {/* Notice Document Styled Legal Paper Editor */}
+                      <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+                        <div className="paper-sheet">
+                          <textarea
+                            value={documentContent}
+                            onChange={(e) => setDocumentContent(e.target.value)}
+                            style={{
+                              width: '100%',
+                              minHeight: '480px',
+                              background: 'transparent',
+                              color: '#1e293b',
+                              border: 'none',
+                              outline: 'none',
+                              padding: 0,
+                              fontFamily: 'inherit',
+                              fontSize: 'inherit',
+                              lineHeight: 'inherit',
+                              resize: 'vertical'
+                            }}
+                          />
+                        </div>
                       </div>
 
                     </div>
+                  </div>
+                )}
+
+                {/* Follow-up Conversational Chat Tab */}
+                {activeTab === 'chat' && activeCase && (
+                  <div className="animate-slide chat-container">
+                    
+                    {/* Chat Header */}
+                    <div style={{ padding: '0.75rem 1.25rem', borderBottom: '1px solid var(--border-color)', background: 'var(--bg-tertiary)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                        <MessageSquare size={16} color="var(--accent-primary)" />
+                        <span style={{ fontSize: '0.85rem', fontWeight: 700 }}>Follow-up Consultation</span>
+                      </div>
+                      <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)', fontWeight: 600 }}>Grounded on: {activeCase.classification.domain} Case</span>
+                    </div>
+
+                    {/* Message Log */}
+                    <div className="chat-messages">
+                      {/* Initial Greeting */}
+                      <div className="msg-bubble msg-bot">
+                        Hi, I am your NyayAI Legal Assistant. You can ask me any follow-up questions regarding this case. For example:
+                        <ul style={{ paddingLeft: '1rem', marginTop: '0.35rem', display: 'flex', flexDirection: 'column', gap: '0.15rem' }}>
+                          <li>- *"What if they don't respond to my notice?"*</li>
+                          <li>- *"How much court fee will I have to pay?"*</li>
+                          <li>- *"What sections of law apply here?"*</li>
+                        </ul>
+                      </div>
+
+                      {/* Historical chats */}
+                      {(activeCase.chatLogs || []).map((msg, idx) => (
+                        <div key={idx} className={`msg-bubble ${msg.sender === 'user' ? 'msg-user' : 'msg-bot'}`}>
+                          <div>{msg.text}</div>
+                          <span style={{ fontSize: '0.6rem', color: msg.sender === 'user' ? 'rgba(255,255,255,0.7)' : 'var(--text-muted)', display: 'block', textAlign: 'right', marginTop: '0.2rem' }}>
+                            {msg.time}
+                          </span>
+                        </div>
+                      ))}
+
+                      {/* Loader bubble */}
+                      {isChatLoading && (
+                        <div className="msg-bubble msg-bot" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                          <Loader className="spinner" size={14} /> Drafting legally grounded reply...
+                        </div>
+                      )}
+
+                      <div ref={chatBottomRef} />
+                    </div>
+
+                    {/* Message Input Panel */}
+                    <div className="chat-input-area">
+                      <input 
+                        type="text" 
+                        value={chatMessage} 
+                        onChange={(e) => setChatMessage(e.target.value)}
+                        onKeyDown={(e) => { if (e.key === 'Enter') handleSendChatMessage(); }}
+                        placeholder="Type your follow-up legal question here..."
+                        style={{ flex: 1, padding: '0.5rem 0.75rem', borderRadius: 'var(--radius-sm)' }}
+                        disabled={isChatLoading}
+                      />
+                      <button 
+                        onClick={handleSendChatMessage}
+                        disabled={isChatLoading || !chatMessage.trim()}
+                        className="btn-hover"
+                        style={{
+                          background: 'var(--accent-primary)',
+                          color: '#fff',
+                          border: 'none',
+                          padding: '0.5rem 1rem',
+                          borderRadius: 'var(--radius-sm)',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          opacity: chatMessage.trim() && !isChatLoading ? 1 : 0.6
+                        }}
+                      >
+                        <Send size={14} />
+                      </button>
+                    </div>
+
                   </div>
                 )}
 
