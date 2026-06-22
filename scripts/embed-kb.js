@@ -15,7 +15,7 @@ if (!apiKey) {
 
 // Initialize Gemini API
 const genAI = new GoogleGenerativeAI(apiKey);
-const embeddingModel = genAI.getGenerativeModel({ model: 'text-embedding-004' });
+const embeddingModel = genAI.getGenerativeModel({ model: 'gemini-embedding-2' });
 
 // Paths
 const kbDir = path.join(__dirname, '..', 'src', 'data', 'kb');

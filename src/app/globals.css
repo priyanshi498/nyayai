@@ -2,27 +2,27 @@
 
 :root {
   /* Dark Mode Tokens (Default) */
-  --bg-primary: #0a0e1a;
-  --bg-secondary: #121829;
-  --bg-tertiary: #1b233d;
-  --border-color: rgba(255, 255, 255, 0.08);
-  --border-focus: #5f5dec;
-  --text-primary: #f3f4f6;
-  --text-secondary: #9ca3af;
-  --text-muted: #6b7280;
+  --bg-primary: #060b19;
+  --bg-secondary: #0b1126;
+  --bg-tertiary: #131b35;
+  --border-color: rgba(255, 255, 255, 0.06);
+  --border-focus: #6366f1;
+  --text-primary: #f8fafc;
+  --text-secondary: #cbd5e1;
+  --text-muted: #64748b;
   
-  --accent-primary: #5f5dec;
-  --accent-glow: rgba(95, 93, 236, 0.15);
+  --accent-primary: #6366f1;
+  --accent-glow: rgba(99, 102, 241, 0.18);
   --accent-success: #10b981;
   --accent-warning: #f59e0b;
-  --accent-danger: #ef4444;
+  --accent-danger: #f43f5e;
   
   --font-display: 'Outfit', sans-serif;
   --font-body: 'Plus Jakarta Sans', sans-serif;
-  --card-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+  --card-shadow: 0 20px 40px -15px rgba(0, 0, 0, 0.5);
   --radius-sm: 8px;
-  --radius-md: 16px;
-  --radius-lg: 24px;
+  --radius-md: 14px;
+  --radius-lg: 20px;
 }
 
 [data-theme="light"] {
@@ -30,26 +30,26 @@
   --bg-primary: #f8fafc;
   --bg-secondary: #ffffff;
   --bg-tertiary: #f1f5f9;
-  --border-color: rgba(0, 0, 0, 0.08);
-  --border-focus: #5f5dec;
+  --border-color: rgba(15, 23, 42, 0.08);
+  --border-focus: #4f46e5;
   --text-primary: #0f172a;
-  --text-secondary: #475569;
-  --text-muted: #94a3b8;
+  --text-secondary: #334155;
+  --text-muted: #64748b;
   
-  --accent-primary: #5f5dec;
-  --accent-glow: rgba(95, 93, 236, 0.08);
+  --accent-primary: #4f46e5;
+  --accent-glow: rgba(79, 70, 229, 0.08);
   --accent-success: #10b981;
-  --accent-warning: #f59e0b;
-  --accent-danger: #ef4444;
+  --accent-warning: #d97706;
+  --accent-danger: #e11d48;
   
-  --card-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.05);
+  --card-shadow: 0 20px 40px -15px rgba(15, 23, 42, 0.05);
 }
 
 * {
   box-sizing: border-box;
   margin: 0;
   padding: 0;
-  transition: background-color 0.3s ease, border-color 0.3s ease;
+  transition: background-color 0.25s ease, border-color 0.25s ease;
 }
 
 body {
@@ -89,12 +89,12 @@ h1, h2, h3, h4, h5, h6 {
 /* Animations */
 @keyframes pulseGlow {
   0%, 100% {
-    box-shadow: 0 0 15px rgba(95, 93, 236, 0.2);
-    border-color: rgba(95, 93, 236, 0.3);
+    box-shadow: 0 0 15px rgba(99, 102, 241, 0.15);
+    border-color: rgba(99, 102, 241, 0.2);
   }
   50% {
-    box-shadow: 0 0 25px rgba(95, 93, 236, 0.4);
-    border-color: rgba(95, 93, 236, 0.6);
+    box-shadow: 0 0 25px rgba(99, 102, 241, 0.35);
+    border-color: rgba(99, 102, 241, 0.5);
   }
 }
 
@@ -106,7 +106,7 @@ h1, h2, h3, h4, h5, h6 {
 @keyframes slideInUp {
   from {
     opacity: 0;
-    transform: translateY(20px);
+    transform: translateY(16px);
   }
   to {
     opacity: 1;
@@ -114,22 +114,27 @@ h1, h2, h3, h4, h5, h6 {
   }
 }
 
-@keyframes blink {
-  0%, 100% { opacity: 0.2; }
-  50% { opacity: 1; }
+@keyframes pulseScale {
+  0%, 100% { transform: scale(1); opacity: 0.9; }
+  50% { transform: scale(1.05); opacity: 1; }
+}
+
+@keyframes wave {
+  0%, 100% { height: 6px; }
+  50% { height: 28px; }
 }
 
 /* Utility Classes */
 .glass {
-  background: rgba(18, 24, 41, 0.7);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+  background: rgba(11, 17, 38, 0.75);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
   border: 1px solid var(--border-color);
   box-shadow: var(--card-shadow);
 }
 
 [data-theme="light"] .glass {
-  background: rgba(255, 255, 255, 0.7);
+  background: rgba(255, 255, 255, 0.75);
 }
 
 .glow-active {
@@ -137,60 +142,117 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 .spinner {
-  animation: spin 1s linear infinite;
+  animation: spin 1.2s linear infinite;
 }
 
-.pulse {
-  animation: blink 1.5s infinite ease-in-out;
+.pulse-button {
+  animation: pulseScale 2s infinite ease-in-out;
 }
 
 .animate-slide {
-  animation: slideInUp 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  animation: slideInUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
-/* Markdown Styling inside content panels */
-.prose {
+/* Interactive Elements */
+.history-item {
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  border: 1px solid transparent;
+}
+.history-item:hover {
+  background: var(--bg-tertiary) !important;
+  border-color: var(--border-color) !important;
+  transform: translateX(4px);
+}
+
+.btn-hover {
+  transition: all 0.2s ease;
+}
+.btn-hover:hover {
+  filter: brightness(1.1);
+  transform: translateY(-1px);
+}
+.btn-hover:active {
+  transform: translateY(0);
+}
+
+/* Legal Markdown / Prose Rendering */
+.legal-prose {
+  line-height: 1.7;
+  color: var(--text-secondary);
+  font-size: 0.975rem;
+}
+
+.legal-prose h2 {
+  font-size: 1.5rem;
   color: var(--text-primary);
-}
-
-.prose h3 {
-  margin-top: 1.5rem;
+  margin-top: 1.75rem;
   margin-bottom: 0.75rem;
-  color: var(--text-primary);
-  font-size: 1.25rem;
+  padding-bottom: 0.35rem;
   border-bottom: 1px solid var(--border-color);
-  padding-bottom: 0.25rem;
 }
 
-.prose p {
-  margin-bottom: 1rem;
-  color: var(--text-secondary);
-}
-
-.prose ul, .prose ol {
-  margin-bottom: 1.25rem;
-  padding-left: 1.5rem;
-  color: var(--text-secondary);
-}
-
-.prose li {
+.legal-prose h3 {
+  font-size: 1.15rem;
+  color: var(--text-primary);
+  margin-top: 1.5rem;
   margin-bottom: 0.5rem;
 }
 
-.prose strong {
+.legal-prose p {
+  margin-bottom: 1rem;
+}
+
+.legal-prose ul, .legal-prose ol {
+  margin-bottom: 1.25rem;
+  padding-left: 1.25rem;
+}
+
+.legal-prose li {
+  margin-bottom: 0.5rem;
+  position: relative;
+}
+
+.legal-prose li::marker {
+  color: var(--accent-primary);
+}
+
+.legal-prose strong {
   color: var(--text-primary);
   font-weight: 600;
 }
 
-.prose code {
-  background: var(--bg-tertiary);
-  padding: 0.2rem 0.4rem;
-  border-radius: var(--radius-sm);
+.legal-prose code {
   font-family: monospace;
+  background: var(--bg-tertiary);
+  padding: 0.15rem 0.35rem;
+  border-radius: var(--radius-sm);
+  color: var(--accent-primary);
   font-size: 0.9em;
 }
 
-/* Base button and form styles */
+/* Audio Recording Waves */
+.waveform {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  height: 32px;
+}
+
+.wave-bar {
+  width: 3px;
+  background: var(--accent-danger);
+  border-radius: 3px;
+  animation: wave 1.2s ease-in-out infinite;
+}
+
+.wave-bar:nth-child(1) { animation-delay: 0.1s; height: 12px; }
+.wave-bar:nth-child(2) { animation-delay: 0.3s; height: 22px; }
+.wave-bar:nth-child(3) { animation-delay: 0.0s; height: 8px; }
+.wave-bar:nth-child(4) { animation-delay: 0.5s; height: 26px; }
+.wave-bar:nth-child(5) { animation-delay: 0.2s; height: 16px; }
+.wave-bar:nth-child(6) { animation-delay: 0.4s; height: 20px; }
+
+/* Base form controls styling */
 input, textarea, select {
   background-color: var(--bg-tertiary);
   border: 1px solid var(--border-color);
@@ -199,6 +261,8 @@ input, textarea, select {
   padding: 0.75rem 1rem;
   font-family: var(--font-body);
   outline: none;
+  font-size: 0.875rem;
+  transition: border-color 0.2s, box-shadow 0.2s;
 }
 
 input:focus, textarea:focus, select:focus {

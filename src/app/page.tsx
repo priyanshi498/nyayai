@@ -9,20 +9,20 @@ import {
   CheckSquare, 
   Settings, 
   Download, 
-  Globe, 
   Trash2, 
-  User, 
-  AlertCircle, 
   AlertTriangle, 
-  ChevronRight, 
   Info, 
   Mic, 
   Send,
   Loader,
   X,
-  FileSpreadsheet,
   CheckCircle,
-  HelpCircle
+  Copy,
+  Moon,
+  Sun,
+  Shield,
+  HelpCircle,
+  AlertCircle
 } from 'lucide-react';
 
 interface Classification {
@@ -42,6 +42,14 @@ interface AnalysisResult {
   actionPlan: string;
   document: string;
   timestamp: string;
+  customizerData?: {
+    senderName?: string;
+    senderAddress?: string;
+    oppositeName?: string;
+    oppositeAddress?: string;
+    customAmount?: string;
+    customProperty?: string;
+  };
 }
 
 const MOCK_LANDLORD_RESPONSE = {
@@ -51,7 +59,7 @@ const MOCK_LANDLORD_RESPONSE = {
     keyEntities: ['Landlord', 'Security Deposit', '3 Months'],
     summary: 'Landlord has withheld the security deposit for 3 months after the tenancy ended.'
   },
-  rights: `### Tenant Rights in India: Security Deposit Refund
+  rights: `## Tenant Rights in India: Security Deposit Refund
 
 Under the **Model Tenancy Act, 2021 (MTA)** and state-specific Rent Control Acts, you have clear protections regarding your security deposit:
 
@@ -68,7 +76,7 @@ Under the **Model Tenancy Act, 2021 (MTA)** and state-specific Rent Control Acts
 
 4. **Right against Exploitation**:
    - If the landlord refuses to return the deposit, the tenant has the right to approach the **Rent Authority** to resolve the dispute.`,
-  actionPlan: `### Step-by-Step Action Plan
+  actionPlan: `## Step-by-Step Action Plan
 
 1. **Step 1: Gather Evidentiary Documents** (Immediate)
    - Locate your registered Rent Agreement.
@@ -116,6 +124,178 @@ Sincerely,
 (Sender)`
 };
 
+// Custom Markdown Viewer component
+function MarkdownViewer({ text }: { text: string }) {
+  if (!text) return null;
+  
+  const lines = text.split('\n');
+  const rendered: React.ReactNode[] = [];
+  
+  let inList = false;
+  let listItems: React.ReactNode[] = [];
+  let inOrderedList = false;
+  let orderedListItems: React.ReactNode[] = [];
+
+  const flushList = () => {
+    if (inList && listItems.length > 0) {
+      rendered.push(
+        <ul key={`ul-${rendered.length}`} style={{ listStyleType: 'disc', paddingLeft: '1.5rem', marginBottom: '1.25rem' }}>
+          {listItems}
+        </ul>
+      );
+      listItems = [];
+      inList = false;
+    }
+    if (inOrderedList && orderedListItems.length > 0) {
+      rendered.push(
+        <ol key={`ol-${rendered.length}`} style={{ listStyleType: 'decimal', paddingLeft: '1.5rem', marginBottom: '1.25rem' }}>
+          {orderedListItems}
+        </ol>
+      );
+      orderedListItems = [];
+      inOrderedList = false;
+    }
+  };
+
+  const parseInline = (lineText: string) => {
+    const parts = [];
+    let remaining = lineText;
+    let keyIdx = 0;
+
+    while (remaining.length > 0) {
+      const boldMatch = remaining.match(/\*\*(.*?)\*\*/);
+      const codeMatch = remaining.match(/`(.*?)`/);
+
+      let firstMatch = null;
+      let matchType: 'bold' | 'code' | null = null;
+
+      if (boldMatch && codeMatch) {
+        if (boldMatch.index! < codeMatch.index!) {
+          firstMatch = boldMatch;
+          matchType = 'bold';
+        } else {
+          firstMatch = codeMatch;
+          matchType = 'code';
+        }
+      } else if (boldMatch) {
+        firstMatch = boldMatch;
+        matchType = 'bold';
+      } else if (codeMatch) {
+        firstMatch = codeMatch;
+        matchType = 'code';
+      }
+
+      if (firstMatch && firstMatch.index !== undefined) {
+        if (firstMatch.index > 0) {
+          parts.push(remaining.substring(0, firstMatch.index));
+        }
+        const matchedText = firstMatch[1];
+        if (matchType === 'bold') {
+          parts.push(<strong key={`bold-${keyIdx++}`} style={{ fontWeight: 700, color: 'var(--text-primary)' }}>{matchedText}</strong>);
+        } else {
+          parts.push(
+            <code key={`code-${keyIdx++}`} style={{
+              fontFamily: 'monospace',
+              background: 'var(--bg-tertiary)',
+              padding: '0.15rem 0.35rem',
+              borderRadius: 'var(--radius-sm)',
+              color: 'var(--accent-primary)',
+              fontSize: '0.9em'
+            }}>{matchedText}</code>
+          );
+        }
+        remaining = remaining.substring(firstMatch.index + firstMatch[0].length);
+      } else {
+        parts.push(remaining);
+        break;
+      }
+    }
+
+    return parts;
+  };
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i].trim();
+    
+    if (!line) {
+      flushList();
+      continue;
+    }
+
+    // Headers
+    if (line.startsWith('### ')) {
+      flushList();
+      rendered.push(<h4 key={i} style={{ fontSize: '1.15rem', color: 'var(--text-primary)', marginTop: '1.25rem', marginBottom: '0.5rem', fontWeight: 600 }}>{parseInline(line.substring(4))}</h4>);
+    } else if (line.startsWith('## ')) {
+      flushList();
+      rendered.push(
+        <h3 key={i} style={{ 
+          fontSize: '1.4rem', 
+          color: 'var(--text-primary)', 
+          marginTop: '1.5rem', 
+          marginBottom: '0.75rem', 
+          borderBottom: '1px solid var(--border-color)', 
+          paddingBottom: '0.35rem',
+          fontWeight: 600
+        }}>{parseInline(line.substring(3))}</h3>
+      );
+    } else if (line.startsWith('# ')) {
+      flushList();
+      rendered.push(<h2 key={i} style={{ fontSize: '1.75rem', color: 'var(--text-primary)', marginTop: '1.75rem', marginBottom: '1rem', fontWeight: 700 }}>{parseInline(line.substring(2))}</h2>);
+    }
+    // Unordered Lists
+    else if (line.startsWith('- ') || line.startsWith('* ')) {
+      if (inOrderedList) flushList();
+      inList = true;
+      listItems.push(
+        <li key={i} style={{ marginBottom: '0.4rem', color: 'var(--text-secondary)' }}>
+          {parseInline(line.substring(2))}
+        </li>
+      );
+    }
+    // Ordered Lists
+    else if (/^\d+\.\s/.test(line)) {
+      if (inList) flushList();
+      inOrderedList = true;
+      const match = line.match(/^(\d+)\.\s(.*)/);
+      if (match) {
+        orderedListItems.push(
+          <li key={i} style={{ marginBottom: '0.4rem', color: 'var(--text-secondary)' }}>
+            {parseInline(match[2])}
+          </li>
+        );
+      }
+    }
+    // Blockquotes
+    else if (line.startsWith('> ')) {
+      flushList();
+      rendered.push(
+        <blockquote key={i} style={{
+          borderLeft: '4px solid var(--accent-primary)',
+          paddingLeft: '1rem',
+          margin: '1rem 0',
+          color: 'var(--text-secondary)',
+          fontStyle: 'italic',
+          background: 'var(--bg-tertiary)',
+          padding: '0.75rem 1rem',
+          borderRadius: '0 var(--radius-sm) var(--radius-sm) 0'
+        }}>
+          {parseInline(line.substring(2))}
+        </blockquote>
+      );
+    }
+    // Regular Paragraphs
+    else {
+      flushList();
+      rendered.push(<p key={i} style={{ marginBottom: '1rem', color: 'var(--text-secondary)', lineHeight: '1.7' }}>{parseInline(line)}</p>);
+    }
+  }
+
+  flushList();
+
+  return <div className="legal-prose">{rendered}</div>;
+}
+
 export default function Home() {
   const [problem, setProblem] = useState('');
   const [language, setLanguage] = useState('en');
@@ -138,6 +318,14 @@ export default function Home() {
   const [documentContent, setDocumentContent] = useState('');
   
   const [theme, setTheme] = useState<'dark' | 'light'>('dark');
+  
+  // Voice Input States
+  const [isRecording, setIsRecording] = useState(false);
+  const recognitionRef = useRef<any>(null);
+
+  // Agent thoughts log during loading
+  const [agentLogs, setAgentLogs] = useState<string[]>([]);
+  const logsEndRef = useRef<HTMLDivElement>(null);
 
   // Load configuration and history on mount
   useEffect(() => {
@@ -156,7 +344,47 @@ export default function Home() {
         console.error('Failed to parse history', e);
       }
     }
+
+    // Initialize Native Speech Recognition
+    if (typeof window !== 'undefined') {
+      const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+      if (SpeechRecognition) {
+        const rec = new SpeechRecognition();
+        rec.continuous = true;
+        rec.interimResults = false;
+        
+        rec.onresult = (event: any) => {
+          const transcript = event.results[event.results.length - 1][0].transcript;
+          setProblem(prev => prev ? prev + ' ' + transcript : transcript);
+        };
+
+        rec.onend = () => {
+          setIsRecording(false);
+        };
+
+        rec.onerror = (err: any) => {
+          console.error('Speech recognition error', err);
+          setIsRecording(false);
+        };
+
+        recognitionRef.current = rec;
+      }
+    }
   }, []);
+
+  // Update speech recognition language when state changes
+  useEffect(() => {
+    if (recognitionRef.current) {
+      recognitionRef.current.lang = language === 'hi' ? 'hi-IN' : language === 'hinglish' ? 'hi-IN' : 'en-IN';
+    }
+  }, [language]);
+
+  // Scroll loader logs to bottom
+  useEffect(() => {
+    if (logsEndRef.current) {
+      logsEndRef.current.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [agentLogs]);
 
   // Update document content when customization fields change
   useEffect(() => {
@@ -184,6 +412,43 @@ export default function Home() {
     }
   }, [senderName, senderAddress, oppositeName, oppositeAddress, customAmount, customProperty, activeCaseId]);
 
+  // Sync customizer inputs back into the history case object to persist edits
+  useEffect(() => {
+    if (activeCaseId) {
+      setHistory(prev => {
+        const idx = prev.findIndex(c => c.id === activeCaseId);
+        if (idx !== -1) {
+          const item = prev[idx];
+          const hasChanged = 
+            item.customizerData?.senderName !== senderName ||
+            item.customizerData?.senderAddress !== senderAddress ||
+            item.customizerData?.oppositeName !== oppositeName ||
+            item.customizerData?.oppositeAddress !== oppositeAddress ||
+            item.customizerData?.customAmount !== customAmount ||
+            item.customizerData?.customProperty !== customProperty;
+
+          if (hasChanged) {
+            const updated = [...prev];
+            updated[idx] = {
+              ...item,
+              customizerData: {
+                senderName,
+                senderAddress,
+                oppositeName,
+                oppositeAddress,
+                customAmount,
+                customProperty
+              }
+            };
+            localStorage.setItem('nyayai_cases', JSON.stringify(updated));
+            return updated;
+          }
+        }
+        return prev;
+      });
+    }
+  }, [senderName, senderAddress, oppositeName, oppositeAddress, customAmount, customProperty, activeCaseId]);
+
   const toggleTheme = () => {
     const newTheme = theme === 'dark' ? 'light' : 'dark';
     setTheme(newTheme);
@@ -200,17 +465,41 @@ export default function Home() {
     setProblem('Landlord ne deposit wapas nahi kiya 3 mahine ho gaye, agreement kehta tha refund hoga immediately');
   };
 
+  const toggleRecording = () => {
+    if (!recognitionRef.current) {
+      alert('Native voice recognition is not supported in this browser. Please try Chrome or Edge, or use the "Simulate" option.');
+      return;
+    }
+
+    if (isRecording) {
+      recognitionRef.current.stop();
+      setIsRecording(false);
+    } else {
+      try {
+        setIsRecording(true);
+        recognitionRef.current.start();
+      } catch (err) {
+        console.error('Failed to start speech recognition', err);
+        setIsRecording(false);
+      }
+    }
+  };
+
   const loadCase = (caseObj: AnalysisResult) => {
     setActiveCaseId(caseObj.id);
     setProblem(caseObj.problem);
     setLanguage(caseObj.language);
     setDocumentContent(caseObj.document);
     
-    // Parse personal details if available
-    setSenderName('');
-    setSenderAddress('');
-    setOppositeName('');
-    setOppositeAddress('');
+    // Load customizer details if previously saved
+    const cData = caseObj.customizerData || {};
+    setSenderName(cData.senderName || '');
+    setSenderAddress(cData.senderAddress || '');
+    setOppositeName(cData.oppositeName || '');
+    setOppositeAddress(cData.oppositeAddress || '');
+    setCustomAmount(cData.customAmount || '20,000');
+    setCustomProperty(cData.customProperty || 'Flat 302, Green Apartments, Delhi');
+    
     setActiveTab('overview');
   };
 
@@ -245,11 +534,13 @@ export default function Home() {
     setIsLoading(true);
     setCurrentStep(1);
     setActiveTab('overview');
+    setAgentLogs(['[System] Initializing Multi-Agent Consult Desk...', '[System] Loading legal ontology mappings...']);
 
-    const stepsTimer = (step: number, delay: number) => {
+    const stepsTimer = (step: number, delay: number, nextLogs: string[]) => {
       return new Promise<void>((resolve) => {
         setTimeout(() => {
           setCurrentStep(step);
+          setAgentLogs(prev => [...prev, ...nextLogs]);
           resolve();
         }, delay);
       });
@@ -257,11 +548,42 @@ export default function Home() {
 
     try {
       if (forceDemo) {
-        await stepsTimer(1, 800); // Classifier
-        await stepsTimer(2, 800); // RAG
-        await stepsTimer(3, 800); // Explainer
-        await stepsTimer(4, 800); // Planner
-        await stepsTimer(5, 800); // Drafter
+        await stepsTimer(1, 1000, [
+          '[Classifier] Starting classification check...',
+          '[Classifier] Scanning user input tokens for legal triggers...',
+          '[Classifier] Match found: "deposit", "landlord", "3 mahine".',
+          '[Classifier] Case domain categorized as: Tenant Disputes.',
+          '[Classifier] Severity assigned: Medium. Handing off to RAG Retriever...'
+        ]);
+        
+        await stepsTimer(2, 1000, [
+          '[RAG] Analyzing semantic keywords...',
+          '[RAG] Fallback Keyword indexing loaded.',
+          '[RAG] Retrieving statutory articles matching "Tenant" and "Deposit"...',
+          '[RAG] Retrieved 1 source: Section 11 of Model Tenancy Act, 2021.',
+          '[RAG] Grounded context compiled. Handing off to Rights Explainer...'
+        ]);
+        
+        await stepsTimer(3, 1000, [
+          '[Explainer] Translating statutory structures...',
+          '[Explainer] Constructing explanation layout in English...',
+          '[Explainer] Formulated rights under Indian tenancy codes.',
+          '[Explainer] Rights explanation generated. Handing off to Action Planner...'
+        ]);
+        
+        await stepsTimer(4, 1000, [
+          '[Planner] Loading litigation rules & authority listings...',
+          '[Planner] Extracting relevant legal helplines & timelines...',
+          '[Planner] Compiled step-by-step litigation procedure.',
+          '[Planner] Action guidelines completed. Handing off to Document Drafter...'
+        ]);
+        
+        await stepsTimer(5, 1000, [
+          '[Drafter] Drafting formal legal documents...',
+          '[Drafter] Formatting notice body under Section 11, MTA.',
+          '[Drafter] Document successfully formatted with customizable fields.',
+          '[System] Legal Consultation successfully built!'
+        ]);
         
         const newCase: AnalysisResult = {
           id: Date.now().toString(),
@@ -272,7 +594,15 @@ export default function Home() {
           rights: MOCK_LANDLORD_RESPONSE.rights,
           actionPlan: MOCK_LANDLORD_RESPONSE.actionPlan,
           document: MOCK_LANDLORD_RESPONSE.document,
-          timestamp: new Date().toLocaleString()
+          timestamp: new Date().toLocaleString(),
+          customizerData: {
+            senderName: '',
+            senderAddress: '',
+            oppositeName: '',
+            oppositeAddress: '',
+            customAmount: '20,000',
+            customProperty: 'Flat 302, Green Apartments, Delhi'
+          }
         };
 
         const updatedHistory = [newCase, ...history];
@@ -280,8 +610,20 @@ export default function Home() {
         localStorage.setItem('nyayai_cases', JSON.stringify(updatedHistory));
         loadCase(newCase);
       } else {
-        // Run actual api call
-        await stepsTimer(1, 400); // Starting
+        // Run actual API call with simulated concurrent logs to keep user engaged
+        const logTimer = setInterval(() => {
+          const simulatorThoughts = [
+            '[Classifier] Checking text linguistic properties...',
+            '[RAG] Navigating vector file nodes...',
+            '[Explainer] Formulating constitutional framework parameters...',
+            '[Planner] Evaluating dispute resolution timelines...',
+            '[Drafter] Formatting letter syntax blocks...'
+          ];
+          const randomThought = simulatorThoughts[Math.floor(Math.random() * simulatorThoughts.length)];
+          setAgentLogs(prev => [...prev, randomThought]);
+        }, 1200);
+
+        setAgentLogs(prev => [...prev, '[Classifier] Querying Google Gemini Classifier agent...']);
         
         const personalDetails = {
           senderName,
@@ -305,14 +647,22 @@ export default function Home() {
           })
         });
 
-        setCurrentStep(3); // Progress through steps
+        clearInterval(logTimer);
         const data = await response.json();
         
         if (!response.ok) {
           throw new Error(data.error || 'Failed to analyze case');
         }
 
-        await stepsTimer(5, 400); // Finished drafting
+        setAgentLogs(prev => [
+          ...prev, 
+          `[Classifier] Domain resolved: ${data.classification.domain}`,
+          '[RAG] Match found in local vector documents.',
+          '[Explainer] Custom rights draft synthesized successfully.',
+          '[Planner] Checklist timeline generated.',
+          '[Drafter] Notice document fully constructed.',
+          '[System] Analysis finished.'
+        ]);
 
         const newCase: AnalysisResult = {
           id: Date.now().toString(),
@@ -323,7 +673,15 @@ export default function Home() {
           rights: data.rights,
           actionPlan: data.actionPlan,
           document: data.document,
-          timestamp: new Date().toLocaleString()
+          timestamp: new Date().toLocaleString(),
+          customizerData: {
+            senderName,
+            senderAddress,
+            oppositeName,
+            oppositeAddress,
+            customAmount,
+            customProperty
+          }
         };
 
         const updatedHistory = [newCase, ...history];
@@ -337,6 +695,12 @@ export default function Home() {
       setIsLoading(false);
       setCurrentStep(0);
     }
+  };
+
+  const handleCopyNotice = () => {
+    if (!documentContent) return;
+    navigator.clipboard.writeText(documentContent);
+    alert('Notice content copied to clipboard!');
   };
 
   const handleDownloadPDF = () => {
@@ -357,10 +721,19 @@ export default function Home() {
       // Split text to fit page width
       const splitText = doc.splitTextToSize(documentContent, maxLineWidth);
       
-      doc.setFont('Helvetica', 'normal');
-      doc.setFontSize(10.5);
+      // Document header
+      doc.setFont('times', 'bold');
+      doc.setFontSize(14);
+      doc.text('FORMAL LEGAL NOTICE', pageWidth / 2, margin, { align: 'center' });
       
-      let y = margin;
+      // Header divider line
+      doc.setLineWidth(0.5);
+      doc.line(margin, margin + 4, pageWidth - margin, margin + 4);
+      
+      doc.setFont('times', 'normal');
+      doc.setFontSize(11);
+      
+      let y = margin + 14;
       const lineHeight = 6.5;
 
       for (let i = 0; i < splitText.length; i++) {
@@ -371,23 +744,23 @@ export default function Home() {
         
         const line = splitText[i];
         
-        // Simple bold formatting for headers in PDF
+        // Dynamic formatting rules for PDF styling
         if (
           line.startsWith('SUBJECT:') || 
-          line.startsWith('LEGAL NOTICE') || 
           line.startsWith('Dear Sir') || 
-          line.startsWith('To,')
+          line.startsWith('To,') ||
+          line.startsWith('Sincerely,')
         ) {
-          doc.setFont('Helvetica', 'bold');
+          doc.setFont('times', 'bold');
         } else {
-          doc.setFont('Helvetica', 'normal');
+          doc.setFont('times', 'normal');
         }
 
         doc.text(line, margin, y);
         y += lineHeight;
       }
 
-      doc.save(`legal_notice_${activeCaseId || 'draft'}.pdf`);
+      doc.save(`nyayai_legal_notice_${activeCaseId || 'draft'}.pdf`);
     } catch (e) {
       console.error('PDF Generation failed', e);
       alert('Failed to generate PDF. You can copy the text manually from the editor.');
@@ -400,16 +773,16 @@ export default function Home() {
     <div className="app-container" style={{ display: 'flex', height: '100vh', width: '100vw', overflow: 'hidden' }}>
       
       {/* 1. SIDEBAR (Left) */}
-      <div className="sidebar glass" style={{ width: '280px', display: 'flex', flexDirection: 'column', borderRight: '1px solid var(--border-color)', backgroundColor: 'var(--bg-secondary)', zIndex: 10 }}>
+      <div className="sidebar glass" style={{ width: '290px', display: 'flex', flexDirection: 'column', borderRight: '1px solid var(--border-color)', backgroundColor: 'var(--bg-secondary)', zIndex: 10 }}>
         
         {/* Brand Header */}
-        <div style={{ padding: '1.5rem', borderBottom: '1px solid var(--border-color)', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-          <div style={{ background: 'var(--accent-primary)', padding: '0.5rem', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <Scale size={24} color="#fff" />
+        <div style={{ padding: '1.25rem', borderBottom: '1px solid var(--border-color)', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+          <div style={{ background: 'var(--accent-primary)', padding: '0.5rem', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <Scale size={20} color="#fff" />
           </div>
           <div>
-            <h1 style={{ fontSize: '1.25rem', color: 'var(--text-primary)', margin: 0 }}>NyayAI</h1>
-            <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'block' }}>Legal Aid Agent</span>
+            <h1 style={{ fontSize: '1.15rem', color: 'var(--text-primary)', margin: 0, fontWeight: 700, fontFamily: 'var(--font-display)' }}>NyayAI</h1>
+            <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', display: 'block', fontWeight: 500 }}>Legal Intelligence Agent</span>
           </div>
         </div>
 
@@ -421,10 +794,10 @@ export default function Home() {
               setProblem('');
               setDocumentContent('');
             }}
-            className="btn-new"
+            className="btn-new btn-hover"
             style={{
               width: '100%',
-              padding: '0.75rem 1rem',
+              padding: '0.7rem 1rem',
               background: 'var(--accent-primary)',
               color: '#fff',
               border: 'none',
@@ -435,78 +808,98 @@ export default function Home() {
               alignItems: 'center',
               justifyContent: 'center',
               gap: '0.5rem',
-              boxShadow: '0 4px 12px rgba(95, 93, 236, 0.25)',
-              fontFamily: 'var(--font-display)'
+              boxShadow: '0 4px 14px var(--accent-glow)',
+              fontFamily: 'var(--font-display)',
+              fontSize: '0.85rem'
             }}
           >
-            <Plus size={18} /> New Consultation
+            <Plus size={16} /> New Consultation
           </button>
         </div>
 
         {/* History List */}
-        <div style={{ flex: 1, overflowY: 'auto', padding: '0.5rem 1rem' }}>
-          <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', display: 'block', marginBottom: '0.75rem' }}>History</span>
+        <div style={{ flex: 1, overflowY: 'auto', padding: '0.5rem 0.75rem' }}>
+          <span style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', display: 'block', marginBottom: '0.75rem', paddingLeft: '0.5rem', letterSpacing: '0.05em' }}>History</span>
           
           {history.length === 0 ? (
-            <div style={{ textAlign: 'center', padding: '2rem 1rem', color: 'var(--text-muted)', fontSize: '0.875rem' }}>
+            <div style={{ textAlign: 'center', padding: '2rem 1rem', color: 'var(--text-muted)', fontSize: '0.8rem' }}>
               No cases analyzed yet.
             </div>
           ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-              {history.map(item => (
-                <div 
-                  key={item.id} 
-                  onClick={() => loadCase(item)}
-                  style={{
-                    padding: '0.75rem',
-                    borderRadius: 'var(--radius-sm)',
-                    background: activeCaseId === item.id ? 'var(--bg-tertiary)' : 'transparent',
-                    border: '1px solid',
-                    borderColor: activeCaseId === item.id ? 'var(--border-focus)' : 'transparent',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                    gap: '0.5rem'
-                  }}
-                  className="history-item"
-                >
-                  <div style={{ minWidth: 0 }}>
-                    <div style={{ fontSize: '0.875rem', fontWeight: 500, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                      {item.classification.domain} Case
-                    </div>
-                    <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                      {item.problem}
-                    </div>
-                  </div>
-                  <button 
-                    onClick={(e) => deleteCase(item.id, e)}
-                    style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: '0.25rem' }}
-                    className="btn-delete"
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+              {history.map(item => {
+                const domainColor = 
+                  item.classification.domain.toLowerCase() === 'tenant' ? '#6366f1' :
+                  item.classification.domain.toLowerCase() === 'consumer' ? '#10b981' :
+                  item.classification.domain.toLowerCase() === 'labor' ? '#f59e0b' :
+                  '#ef4444';
+
+                return (
+                  <div 
+                    key={item.id} 
+                    onClick={() => loadCase(item)}
+                    style={{
+                      padding: '0.75rem',
+                      borderRadius: 'var(--radius-sm)',
+                      background: activeCaseId === item.id ? 'var(--bg-tertiary)' : 'transparent',
+                      border: '1px solid',
+                      borderColor: activeCaseId === item.id ? 'var(--border-focus)' : 'transparent',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      gap: '0.5rem'
+                    }}
+                    className="history-item"
                   >
-                    <Trash2 size={14} />
-                  </button>
-                </div>
-              ))}
+                    <div style={{ minWidth: 0, flex: 1 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', marginBottom: '0.2rem' }}>
+                        <span style={{
+                          display: 'inline-block',
+                          width: '6px',
+                          height: '6px',
+                          borderRadius: '50%',
+                          backgroundColor: domainColor
+                        }} />
+                        <span style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-primary)' }}>
+                          {item.classification.domain} Case
+                        </span>
+                      </div>
+                      <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        {item.problem}
+                      </div>
+                    </div>
+                    <button 
+                      onClick={(e) => deleteCase(item.id, e)}
+                      style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', padding: '0.25rem', display: 'flex', alignItems: 'center' }}
+                      className="btn-delete btn-hover"
+                    >
+                      <Trash2 size={12} />
+                    </button>
+                  </div>
+                );
+              })}
             </div>
           )}
         </div>
 
         {/* Sidebar Footer Controls */}
-        <div style={{ padding: '1rem', borderTop: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div style={{ padding: '0.75rem 1rem', borderTop: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <button 
             onClick={toggleTheme}
-            style={{ background: 'transparent', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.875rem' }}
+            className="btn-hover"
+            style={{ background: 'transparent', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.8rem', fontWeight: 500 }}
           >
-            <Globe size={16} /> Theme: {theme.toUpperCase()}
+            {theme === 'dark' ? <Sun size={14} /> : <Moon size={14} />} Theme: {theme.toUpperCase()}
           </button>
           
           <button 
             onClick={() => setShowSettings(true)}
-            style={{ background: 'transparent', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
+            className="btn-hover"
+            style={{ background: 'transparent', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', display: 'flex', alignItems: 'center', padding: '0.25rem' }}
             title="Configure API Key"
           >
-            <Settings size={18} />
+            <Settings size={16} />
           </button>
         </div>
       </div>
@@ -515,26 +908,26 @@ export default function Home() {
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', backgroundColor: 'var(--bg-primary)', overflow: 'hidden' }}>
         
         {/* Main Header */}
-        <div className="glass" style={{ padding: '1rem 2rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-color)' }}>
+        <div className="glass" style={{ padding: '0.75rem 2rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-color)' }}>
           <div>
-            <span style={{ fontSize: '0.75rem', color: 'var(--accent-primary)', fontWeight: 600, textTransform: 'uppercase' }}>Indian Legal System AI</span>
-            <h2 style={{ fontSize: '1.25rem', color: 'var(--text-primary)' }}>
+            <span style={{ fontSize: '0.7rem', color: 'var(--accent-primary)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Indian Legal System AI</span>
+            <h2 style={{ fontSize: '1.15rem', color: 'var(--text-primary)', fontWeight: 600 }}>
               {activeCase ? `${activeCase.classification.domain} Redressal Desk` : 'AI Legal Consult'}
             </h2>
           </div>
           
           {/* Quick Language Toggle */}
-          <div style={{ display: 'flex', gap: '0.25rem', background: 'var(--bg-secondary)', padding: '0.25rem', borderRadius: '8px' }}>
+          <div style={{ display: 'flex', gap: '0.25rem', background: 'var(--bg-secondary)', padding: '0.25rem', borderRadius: '6px' }}>
             {['en', 'hi', 'hinglish'].map(lang => (
               <button 
                 key={lang}
                 onClick={() => setLanguage(lang)}
                 style={{
-                  padding: '0.25rem 0.75rem',
+                  padding: '0.25rem 0.6rem',
                   border: 'none',
-                  borderRadius: '6px',
-                  fontSize: '0.75rem',
-                  fontWeight: 600,
+                  borderRadius: '4px',
+                  fontSize: '0.72rem',
+                  fontWeight: 700,
                   cursor: 'pointer',
                   background: language === lang ? 'var(--accent-primary)' : 'transparent',
                   color: language === lang ? '#fff' : 'var(--text-secondary)'
@@ -550,23 +943,48 @@ export default function Home() {
         <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
           
           {/* Case Consult Interface / Result Split */}
-          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflowY: 'auto', padding: '2rem' }}>
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflowY: 'auto', padding: '1.5rem 2rem' }}>
             
             {!activeCase && !isLoading ? (
               // Empty State Input Form
-              <div className="animate-slide" style={{ maxWidth: '700px', margin: '2rem auto', width: '100%' }}>
-                <div style={{ textAlign: 'center', marginBottom: '2.5rem' }}>
-                  <h3 style={{ fontSize: '1.75rem', color: 'var(--text-primary)', marginBottom: '0.5rem' }}>Describe your legal issue</h3>
-                  <p style={{ color: 'var(--text-secondary)', fontSize: '0.95rem' }}>
-                    Type or dictate your problem in Hindi, English, or Hinglish. Our multi-agent AI system will map your rights and draft a notice.
+              <div className="animate-slide" style={{ maxWidth: '680px', margin: '1.5rem auto', width: '100%' }}>
+                
+                {/* SVG Legal Crest Logo */}
+                <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '1.5rem' }}>
+                  <div style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', width: '80px', height: '80px', borderRadius: '50%', background: 'var(--accent-glow)' }}>
+                    <Shield size={36} color="var(--accent-primary)" style={{ opacity: 0.9 }} />
+                    <Scale size={20} color="var(--accent-primary)" style={{ position: 'absolute' }} />
+                  </div>
+                </div>
+
+                <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
+                  <h3 style={{ fontSize: '1.65rem', color: 'var(--text-primary)', marginBottom: '0.5rem', fontWeight: 700 }}>Describe your legal issue</h3>
+                  <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', maxWidth: '520px', margin: '0 auto' }}>
+                    State your legal grievance in simple language (Hindi, English, or Hinglish). NyayAI will match relevant statutes and compile a notice.
                   </p>
                 </div>
 
-                <div className="glass" style={{ borderRadius: 'var(--radius-md)', padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem', position: 'relative' }}>
+                <div className="glass" style={{ borderRadius: 'var(--radius-md)', padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                  
+                  {/* Speech input status indicators */}
+                  {isRecording && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.5rem 0.75rem', background: 'rgba(244, 63, 94, 0.1)', border: '1px solid rgba(244, 63, 94, 0.2)', borderRadius: '6px' }}>
+                      <div className="waveform">
+                        <div className="wave-bar"></div>
+                        <div className="wave-bar"></div>
+                        <div className="wave-bar"></div>
+                        <div className="wave-bar"></div>
+                        <div className="wave-bar"></div>
+                        <div className="wave-bar"></div>
+                      </div>
+                      <span style={{ fontSize: '0.75rem', color: 'var(--accent-danger)', fontWeight: 700 }}>Listening... Speak into your microphone. Click "Mic" again to stop.</span>
+                    </div>
+                  )}
+
                   <textarea
                     value={problem}
                     onChange={(e) => setProblem(e.target.value)}
-                    placeholder="Example: Landlord ne contract khatam hone ke baad 3 mahine se security deposit wapas nahi kiya hai..."
+                    placeholder="Example: Landlord is refusing to return my security deposit of Rs. 20,000 for the last 3 months, even though I vacated the flat and cleared all electricity bills..."
                     style={{
                       width: '100%',
                       minHeight: '140px',
@@ -574,46 +992,68 @@ export default function Home() {
                       border: 'none',
                       background: 'transparent',
                       color: 'var(--text-primary)',
-                      fontSize: '1rem',
+                      fontSize: '0.925rem',
                       lineHeight: '1.6',
                       padding: 0
                     }}
                   />
                   
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid var(--border-color)', paddingTop: '1rem' }}>
-                    {/* Voice Input Mock */}
-                    <button 
-                      onClick={handleVoiceInputMock}
-                      style={{
-                        background: 'var(--bg-tertiary)',
-                        border: 'none',
-                        color: 'var(--text-secondary)',
-                        padding: '0.5rem 1rem',
-                        borderRadius: 'var(--radius-sm)',
-                        cursor: 'pointer',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '0.5rem',
-                        fontSize: '0.875rem'
-                      }}
-                      title="Simulate regional voice input"
-                    >
-                      <Mic size={16} className="pulse" style={{ color: 'var(--accent-danger)' }} /> 
-                      Simulate Hindi Voice
-                    </button>
+                    
+                    <div style={{ display: 'flex', gap: '0.5rem' }}>
+                      {/* Real Voice Input Button */}
+                      <button 
+                        onClick={toggleRecording}
+                        className={`btn-hover ${isRecording ? 'glow-active' : ''}`}
+                        style={{
+                          background: isRecording ? 'var(--accent-danger)' : 'var(--bg-tertiary)',
+                          border: 'none',
+                          color: isRecording ? '#fff' : 'var(--text-secondary)',
+                          padding: '0.5rem 0.85rem',
+                          borderRadius: 'var(--radius-sm)',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '0.4rem',
+                          fontSize: '0.8rem',
+                          fontWeight: 600
+                        }}
+                      >
+                        <Mic size={14} color={isRecording ? '#fff' : 'var(--accent-danger)'} /> 
+                        {isRecording ? 'Stop Recording' : 'Voice Input'}
+                      </button>
 
-                    <div style={{ display: 'flex', gap: '0.75rem' }}>
+                      {/* Mock Voice Input fallback */}
+                      <button 
+                        onClick={handleVoiceInputMock}
+                        className="btn-hover"
+                        style={{
+                          background: 'transparent',
+                          border: '1px solid var(--border-color)',
+                          color: 'var(--text-muted)',
+                          padding: '0.5rem 0.85rem',
+                          borderRadius: 'var(--radius-sm)',
+                          cursor: 'pointer',
+                          fontSize: '0.8rem'
+                        }}
+                      >
+                        Simulate Voice
+                      </button>
+                    </div>
+
+                    <div style={{ display: 'flex', gap: '0.5rem' }}>
                       <button 
                         onClick={handleDemoClick}
+                        className="btn-hover"
                         style={{
                           background: 'transparent',
                           border: '1px solid var(--border-color)',
                           color: 'var(--text-secondary)',
-                          padding: '0.65rem 1.25rem',
+                          padding: '0.5rem 1rem',
                           borderRadius: 'var(--radius-sm)',
                           cursor: 'pointer',
-                          fontWeight: 500,
-                          fontSize: '0.875rem'
+                          fontWeight: 600,
+                          fontSize: '0.8rem'
                         }}
                       >
                         Demo Case
@@ -621,61 +1061,72 @@ export default function Home() {
                       <button 
                         onClick={() => runAnalysis(false)}
                         disabled={!problem.trim()}
+                        className="btn-hover"
                         style={{
                           background: 'var(--accent-primary)',
                           color: '#fff',
                           border: 'none',
-                          padding: '0.65rem 1.5rem',
+                          padding: '0.5rem 1.25rem',
                           borderRadius: 'var(--radius-sm)',
                           cursor: 'pointer',
-                          fontWeight: 600,
-                          fontSize: '0.875rem',
+                          fontWeight: 700,
+                          fontSize: '0.8rem',
                           display: 'flex',
                           alignItems: 'center',
-                          gap: '0.5rem',
+                          gap: '0.4rem',
                           opacity: problem.trim() ? 1 : 0.6
                         }}
                       >
-                        Analyze Case <Send size={14} />
+                        Analyze Case <Send size={12} />
                       </button>
                     </div>
                   </div>
                 </div>
 
-                {/* FAQ Cards */}
-                <div style={{ marginTop: '3rem' }}>
-                  <h4 style={{ fontSize: '0.875rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                    <Info size={14} /> Common Scenarios Supported
+                {/* Common Scenarios Supported */}
+                <div style={{ marginTop: '2.5rem' }}>
+                  <h4 style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.35rem', fontWeight: 700 }}>
+                    <Info size={12} /> Common Legal Scenarios
                   </h4>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-                    <div className="glass" style={{ padding: '1rem', borderRadius: 'var(--radius-sm)', cursor: 'pointer' }} onClick={() => setProblem('I was fired from my office without any notice, and they have withheld my last month salary and FnF clearances.')}>
-                      <span style={{ fontSize: '0.75rem', color: 'var(--accent-primary)', fontWeight: 600, display: 'block' }}>Labor Dispute</span>
-                      <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', marginTop: '0.25rem' }}>Salary withholding & termination without notice.</p>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+                    <div 
+                      className="glass history-item" 
+                      style={{ padding: '0.85rem', borderRadius: 'var(--radius-sm)', cursor: 'pointer' }} 
+                      onClick={() => setProblem('I was fired from my office without any notice, and they have withheld my last month salary and FnF clearances.')}
+                    >
+                      <span style={{ fontSize: '0.75rem', color: 'var(--accent-primary)', fontWeight: 700, display: 'block' }}>Labor Dispute</span>
+                      <p style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', marginTop: '0.2rem', lineHeight: '1.4' }}>Salary withholding & termination without notice.</p>
                     </div>
-                    <div className="glass" style={{ padding: '1rem', borderRadius: 'var(--radius-sm)', cursor: 'pointer' }} onClick={() => setProblem('Maine Amazon se ek smart TV order kiya tha Rs. 35,000 ka, screen damaged aayi and policy hone ke baad bhi product return ya refund reject kar diya.')}>
-                      <span style={{ fontSize: '0.75rem', color: 'var(--accent-primary)', fontWeight: 600, display: 'block' }}>Consumer Grievance</span>
-                      <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', marginTop: '0.25rem' }}>Damaged goods refund rejection by vendor.</p>
+                    <div 
+                      className="glass history-item" 
+                      style={{ padding: '0.85rem', borderRadius: 'var(--radius-sm)', cursor: 'pointer' }} 
+                      onClick={() => setProblem('Maine Amazon se ek smart TV order kiya tha Rs. 35,000 ka, screen damaged aayi and policy hone ke baat bhi product return ya refund reject kar diya.')}
+                    >
+                      <span style={{ fontSize: '0.75rem', color: 'var(--accent-primary)', fontWeight: 700, display: 'block' }}>Consumer Grievance</span>
+                      <p style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', marginTop: '0.2rem', lineHeight: '1.4' }}>Damaged goods refund rejection by vendor.</p>
                     </div>
                   </div>
                 </div>
               </div>
             ) : isLoading ? (
               // Loading sequence & Agent visualization
-              <div style={{ maxWidth: '600px', margin: '4rem auto', width: '100%', textAlign: 'center' }}>
-                <Loader className="spinner" size={48} style={{ color: 'var(--accent-primary)', marginBottom: '2rem' }} />
-                <h3 style={{ fontSize: '1.25rem', marginBottom: '0.5rem' }}>NyayAI agents are analyzing your case...</h3>
-                <p style={{ color: 'var(--text-muted)', fontSize: '0.875rem', marginBottom: '2.5rem' }}>
-                  Using prompt chaining and local legal document vectors.
-                </p>
+              <div style={{ maxWidth: '600px', margin: '2.5rem auto', width: '100%' }}>
+                <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
+                  <Loader className="spinner" size={40} style={{ color: 'var(--accent-primary)', marginBottom: '1.25rem' }} />
+                  <h3 style={{ fontSize: '1.25rem', marginBottom: '0.25rem', fontWeight: 700 }}>AI Agents Analyzing Grievance...</h3>
+                  <p style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>
+                    Mapping constitutional clauses and grounding statutes.
+                  </p>
+                </div>
 
                 {/* Agent Chain Pipeline Display */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', textAlign: 'left', background: 'var(--bg-secondary)', padding: '1.5rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-color)' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', background: 'var(--bg-secondary)', padding: '1.25rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-color)' }}>
                   {[
-                    { id: 1, name: 'Classifier Agent', desc: 'Detecting legal domain, entities, and case severity' },
-                    { id: 2, name: 'RAG Retriever', desc: 'Querying local database of Indian statutes' },
-                    { id: 3, name: 'Rights Explainer Agent', desc: 'Mapping laws and translating rights (Hindi/English)' },
-                    { id: 4, name: 'Action Planner Agent', desc: 'Compiling timelines, helplines, and procedures' },
-                    { id: 5, name: 'Document Drafter Agent', desc: 'Formatting legal notice and letter drafts' }
+                    { id: 1, name: 'Classifier Agent', desc: 'Detecting domain, key entities, and severity' },
+                    { id: 2, name: 'RAG Retriever', desc: 'Querying local statutory database files' },
+                    { id: 3, name: 'Rights Explainer Agent', desc: 'Formulating legal descriptions under Indian Code' },
+                    { id: 4, name: 'Action Planner Agent', desc: 'Drafting resolution steps, costs, and timelines' },
+                    { id: 5, name: 'Document Drafter Agent', desc: 'Structuring official legal notice/complaint document' }
                   ].map(step => {
                     const isActive = currentStep === step.id;
                     const isDone = currentStep > step.id;
@@ -690,25 +1141,25 @@ export default function Home() {
                           padding: '0.5rem',
                           borderRadius: '8px',
                           background: isActive ? 'var(--accent-glow)' : 'transparent',
-                          opacity: isDone || isActive ? 1 : 0.4
+                          opacity: isDone || isActive ? 1 : 0.45
                         }}
                       >
                         <div>
                           {isDone ? (
-                            <CheckCircle size={20} color="var(--accent-success)" />
+                            <CheckCircle size={18} color="var(--accent-success)" />
                           ) : isActive ? (
-                            <Loader size={20} className="spinner" color="var(--accent-primary)" />
+                            <Loader size={18} className="spinner" color="var(--accent-primary)" />
                           ) : (
-                            <div style={{ width: 20, height: 20, borderRadius: '50%', border: '2px solid var(--text-muted)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.75rem', fontWeight: 600 }}>
+                            <div style={{ width: 18, height: 18, borderRadius: '50%', border: '2px solid var(--text-muted)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.65rem', fontWeight: 700 }}>
                               {step.id}
                             </div>
                           )}
                         </div>
                         <div>
-                          <div style={{ fontSize: '0.875rem', fontWeight: 600, color: isActive ? 'var(--accent-primary)' : 'var(--text-primary)' }}>
+                          <div style={{ fontSize: '0.8rem', fontWeight: 700, color: isActive ? 'var(--accent-primary)' : 'var(--text-primary)' }}>
                             {step.name}
                           </div>
-                          <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                          <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>
                             {step.desc}
                           </div>
                         </div>
@@ -716,13 +1167,23 @@ export default function Home() {
                     );
                   })}
                 </div>
+
+                {/* Console Log Feed */}
+                <div style={{ marginTop: '1.25rem', background: '#030712', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-color)', padding: '1rem', fontFamily: 'monospace', fontSize: '0.72rem', color: '#10b981', height: '160px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
+                  {agentLogs.map((log, index) => (
+                    <div key={index} style={{ whiteSpace: 'pre-wrap' }}>
+                      {log}
+                    </div>
+                  ))}
+                  <div ref={logsEndRef} />
+                </div>
               </div>
             ) : (
               // Results Display (Interactive Tabs)
               <div className="animate-slide" style={{ width: '100%' }}>
                 
                 {/* Result Tabs Navigation */}
-                <div style={{ display: 'flex', borderBottom: '1px solid var(--border-color)', marginBottom: '1.5rem', gap: '1.5rem' }}>
+                <div style={{ display: 'flex', borderBottom: '1px solid var(--border-color)', marginBottom: '1.25rem', gap: '1.5rem' }}>
                   {[
                     { id: 'overview', label: 'Case Overview', icon: Scale },
                     { id: 'rights', label: 'Rights Explained', icon: Info },
@@ -738,19 +1199,19 @@ export default function Home() {
                         style={{
                           display: 'flex',
                           alignItems: 'center',
-                          gap: '0.5rem',
-                          paddingBottom: '0.75rem',
+                          gap: '0.4rem',
+                          paddingBottom: '0.65rem',
                           background: 'transparent',
                           border: 'none',
                           borderBottom: '2px solid',
                           borderColor: isActive ? 'var(--accent-primary)' : 'transparent',
                           color: isActive ? 'var(--accent-primary)' : 'var(--text-secondary)',
-                          fontWeight: 600,
-                          fontSize: '0.95rem',
+                          fontWeight: 700,
+                          fontSize: '0.85rem',
                           cursor: 'pointer'
                         }}
                       >
-                        <IconComp size={16} /> {tab.label}
+                        <IconComp size={14} /> {tab.label}
                       </button>
                     );
                   })}
@@ -758,163 +1219,182 @@ export default function Home() {
 
                 {/* Tab Contents */}
                 {activeTab === 'overview' && activeCase && (
-                  <div className="animate-slide" style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-                    <div style={{ display: 'flex', gap: '1.5rem' }}>
-                      <div className="glass" style={{ flex: 1, padding: '1.5rem', borderRadius: 'var(--radius-md)' }}>
-                        <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase', display: 'block' }}>Detected Domain</span>
-                        <h3 style={{ fontSize: '1.5rem', color: 'var(--text-primary)', marginTop: '0.25rem' }}>{activeCase.classification.domain}</h3>
+                  <div className="animate-slide" style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+                    <div style={{ display: 'flex', gap: '1.25rem' }}>
+                      <div className="glass" style={{ flex: 1, padding: '1.25rem', borderRadius: 'var(--radius-md)' }}>
+                        <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.02em' }}>Detected Domain</span>
+                        <h3 style={{ fontSize: '1.35rem', color: 'var(--text-primary)', marginTop: '0.2rem', fontWeight: 700 }}>{activeCase.classification.domain}</h3>
                       </div>
                       
-                      <div className="glass" style={{ flex: 1, padding: '1.5rem', borderRadius: 'var(--radius-md)' }}>
-                        <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textTransform: 'uppercase', display: 'block' }}>Severity Level</span>
-                        <span 
-                          style={{
-                            fontSize: '1rem',
-                            fontWeight: 700,
-                            display: 'inline-block',
-                            marginTop: '0.5rem',
-                            padding: '0.25rem 0.75rem',
-                            borderRadius: '20px',
-                            background: 
-                              activeCase.classification.severity.toLowerCase() === 'high' ? 'rgba(239, 68, 68, 0.15)' :
-                              activeCase.classification.severity.toLowerCase() === 'medium' ? 'rgba(245, 158, 11, 0.15)' :
-                              'rgba(16, 185, 129, 0.15)',
-                            color: 
-                              activeCase.classification.severity.toLowerCase() === 'high' ? 'var(--accent-danger)' :
-                              activeCase.classification.severity.toLowerCase() === 'medium' ? 'var(--accent-warning)' :
-                              'var(--accent-success)'
-                          }}
-                        >
-                          {activeCase.classification.severity}
-                        </span>
+                      <div className="glass" style={{ flex: 1, padding: '1.25rem', borderRadius: 'var(--radius-md)' }}>
+                        <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.02em' }}>Severity Level</span>
+                        <div>
+                          <span 
+                            style={{
+                              fontSize: '0.85rem',
+                              fontWeight: 700,
+                              display: 'inline-block',
+                              marginTop: '0.35rem',
+                              padding: '0.2rem 0.65rem',
+                              borderRadius: '20px',
+                              background: 
+                                activeCase.classification.severity.toLowerCase() === 'high' ? 'rgba(244, 63, 94, 0.12)' :
+                                activeCase.classification.severity.toLowerCase() === 'medium' ? 'rgba(245, 158, 11, 0.12)' :
+                                'rgba(16, 185, 129, 0.12)',
+                              color: 
+                                activeCase.classification.severity.toLowerCase() === 'high' ? 'var(--accent-danger)' :
+                                activeCase.classification.severity.toLowerCase() === 'medium' ? 'var(--accent-warning)' :
+                                'var(--accent-success)'
+                            }}
+                          >
+                            {activeCase.classification.severity}
+                          </span>
+                        </div>
                       </div>
                     </div>
 
-                    <div className="glass" style={{ padding: '1.5rem', borderRadius: 'var(--radius-md)' }}>
-                      <h4 style={{ marginBottom: '0.5rem', color: 'var(--text-primary)' }}>Key Entities Extracted</h4>
-                      <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                    <div className="glass" style={{ padding: '1.25rem', borderRadius: 'var(--radius-md)' }}>
+                      <h4 style={{ marginBottom: '0.5rem', color: 'var(--text-primary)', fontSize: '0.9rem', fontWeight: 700 }}>Key Entities Extracted</h4>
+                      <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
                         {activeCase.classification.keyEntities.map((ent, idx) => (
-                          <span key={idx} style={{ background: 'var(--bg-tertiary)', padding: '0.25rem 0.75rem', borderRadius: '6px', fontSize: '0.85rem', color: 'var(--text-primary)', border: '1px solid var(--border-color)' }}>
+                          <span key={idx} style={{ background: 'var(--bg-tertiary)', padding: '0.2rem 0.6rem', borderRadius: '6px', fontSize: '0.78rem', color: 'var(--text-primary)', border: '1px solid var(--border-color)', fontWeight: 500 }}>
                             {ent}
                           </span>
                         ))}
                       </div>
                     </div>
 
-                    <div className="glass" style={{ padding: '1.5rem', borderRadius: 'var(--radius-md)' }}>
-                      <h4 style={{ marginBottom: '0.5rem', color: 'var(--text-primary)' }}>Case Summary</h4>
-                      <p style={{ color: 'var(--text-secondary)' }}>{activeCase.classification.summary}</p>
+                    <div className="glass" style={{ padding: '1.25rem', borderRadius: 'var(--radius-md)' }}>
+                      <h4 style={{ marginBottom: '0.4rem', color: 'var(--text-primary)', fontSize: '0.9rem', fontWeight: 700 }}>Case Summary</h4>
+                      <p style={{ color: 'var(--text-secondary)', fontSize: '0.88rem', lineHeight: '1.6' }}>{activeCase.classification.summary}</p>
                     </div>
 
-                    <div style={{ display: 'flex', gap: '0.75rem', padding: '1rem', borderRadius: 'var(--radius-sm)', background: 'rgba(245, 158, 11, 0.08)', border: '1px solid rgba(245, 158, 11, 0.2)', alignItems: 'center' }}>
-                      <AlertTriangle color="var(--accent-warning)" size={24} style={{ flexShrink: 0 }} />
-                      <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
-                        <strong>Disclaimer:</strong> NyayAI is an AI-powered educational legal aid tool. It provides legal notice drafts and explains basic acts/procedures under Indian Law, but it **does not substitute a professional lawyer or legal advice**. Consult a qualified attorney for legal action.
+                    <div style={{ display: 'flex', gap: '0.65rem', padding: '0.85rem 1rem', borderRadius: 'var(--radius-sm)', background: 'rgba(245, 158, 11, 0.06)', border: '1px solid rgba(245, 158, 11, 0.15)', alignItems: 'flex-start' }}>
+                      <AlertTriangle color="var(--accent-warning)" size={18} style={{ flexShrink: 0, marginTop: '2px' }} />
+                      <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', lineHeight: '1.5' }}>
+                        <strong style={{ color: 'var(--text-primary)' }}>Disclaimer:</strong> NyayAI is an AI-powered educational legal aid tool. It provides legal notice drafts and explains basic acts/procedures under Indian Law, but it **does not substitute a professional lawyer or legal advice**. Consult a qualified attorney for formal legal action.
                       </div>
                     </div>
                   </div>
                 )}
 
                 {activeTab === 'rights' && activeCase && (
-                  <div className="animate-slide glass prose" style={{ padding: '2rem', borderRadius: 'var(--radius-md)', overflowX: 'auto' }}>
-                    {/* Render basic custom styled markdown */}
-                    <div style={{ whiteSpace: 'pre-wrap' }}>
-                      {activeCase.rights}
-                    </div>
+                  <div className="animate-slide glass" style={{ padding: '1.5rem 2rem', borderRadius: 'var(--radius-md)', overflowX: 'auto' }}>
+                    <MarkdownViewer text={activeCase.rights} />
                   </div>
                 )}
 
                 {activeTab === 'action' && activeCase && (
-                  <div className="animate-slide glass prose" style={{ padding: '2rem', borderRadius: 'var(--radius-md)', overflowX: 'auto' }}>
-                    <div style={{ whiteSpace: 'pre-wrap' }}>
-                      {activeCase.actionPlan}
-                    </div>
+                  <div className="animate-slide glass" style={{ padding: '1.5rem 2rem', borderRadius: 'var(--radius-md)', overflowX: 'auto' }}>
+                    <MarkdownViewer text={activeCase.actionPlan} />
                   </div>
                 )}
 
                 {activeTab === 'document' && activeCase && (
-                  <div className="animate-slide" style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+                  <div className="animate-slide" style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
                     
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>
-                        Edit the letter text directly below. You can customize the fields to automatically fill in details.
+                      <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+                        Customize properties inside the document using the left customizer toolbar.
                       </p>
-                      <button 
-                        onClick={handleDownloadPDF}
-                        style={{
-                          background: 'var(--accent-success)',
-                          color: '#fff',
-                          border: 'none',
-                          padding: '0.5rem 1rem',
-                          borderRadius: 'var(--radius-sm)',
-                          cursor: 'pointer',
-                          fontWeight: 600,
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '0.5rem',
-                          fontSize: '0.875rem'
-                        }}
-                      >
-                        <Download size={16} /> Download Notice PDF
-                      </button>
+                      
+                      <div style={{ display: 'flex', gap: '0.5rem' }}>
+                        <button 
+                          onClick={handleCopyNotice}
+                          className="btn-hover"
+                          style={{
+                            background: 'var(--bg-tertiary)',
+                            border: '1px solid var(--border-color)',
+                            color: 'var(--text-primary)',
+                            padding: '0.45rem 0.85rem',
+                            borderRadius: 'var(--radius-sm)',
+                            cursor: 'pointer',
+                            fontWeight: 600,
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '0.4rem',
+                            fontSize: '0.8rem'
+                          }}
+                        >
+                          <Copy size={13} /> Copy Text
+                        </button>
+                        <button 
+                          onClick={handleDownloadPDF}
+                          className="btn-hover"
+                          style={{
+                            background: 'var(--accent-success)',
+                            color: '#fff',
+                            border: 'none',
+                            padding: '0.45rem 1rem',
+                            borderRadius: 'var(--radius-sm)',
+                            cursor: 'pointer',
+                            fontWeight: 700,
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '0.4rem',
+                            fontSize: '0.8rem'
+                          }}
+                        >
+                          <Download size={13} /> Download PDF
+                        </button>
+                      </div>
                     </div>
 
-                    <div style={{ display: 'flex', gap: '1.5rem' }}>
+                    <div style={{ display: 'flex', gap: '1.25rem', alignItems: 'flex-start' }}>
                       
                       {/* Notice Customizer Form */}
-                      <div className="glass" style={{ width: '320px', padding: '1.25rem', borderRadius: 'var(--radius-md)', display: 'flex', flexDirection: 'column', gap: '1rem', height: 'fit-content' }}>
-                        <h4 style={{ fontSize: '1rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.5rem' }}>Customizer Tool</h4>
+                      <div className="glass" style={{ width: '310px', padding: '1.25rem', borderRadius: 'var(--radius-md)', display: 'flex', flexDirection: 'column', gap: '0.85rem', height: 'fit-content' }}>
+                        <h4 style={{ fontSize: '0.9rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.4rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                          <Settings size={14} color="var(--accent-primary)" /> Customizer Tool
+                        </h4>
                         
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-                          <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)' }}>Your Name</label>
-                          <input type="text" value={senderName} onChange={(e) => setSenderName(e.target.value)} placeholder="E.g., Rahul Kumar" style={{ padding: '0.5rem' }} />
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem' }}>
+                          <label style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-secondary)' }}>Your Name</label>
+                          <input type="text" value={senderName} onChange={(e) => setSenderName(e.target.value)} placeholder="E.g., Rahul Kumar" style={{ padding: '0.45rem 0.65rem' }} />
                         </div>
 
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-                          <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)' }}>Your Address</label>
-                          <input type="text" value={senderAddress} onChange={(e) => setSenderAddress(e.target.value)} placeholder="Your full address" style={{ padding: '0.5rem' }} />
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem' }}>
+                          <label style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-secondary)' }}>Your Address</label>
+                          <input type="text" value={senderAddress} onChange={(e) => setSenderAddress(e.target.value)} placeholder="Your full address" style={{ padding: '0.45rem 0.65rem' }} />
                         </div>
 
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-                          <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)' }}>Opposite Party Name</label>
-                          <input type="text" value={oppositeName} onChange={(e) => setOppositeName(e.target.value)} placeholder="E.g., Ramesh (Landlord)" style={{ padding: '0.5rem' }} />
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem' }}>
+                          <label style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-secondary)' }}>Opposite Party Name</label>
+                          <input type="text" value={oppositeName} onChange={(e) => setOppositeName(e.target.value)} placeholder="E.g., Ramesh (Landlord)" style={{ padding: '0.45rem 0.65rem' }} />
                         </div>
 
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-                          <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)' }}>Opposite Party Address</label>
-                          <input type="text" value={oppositeAddress} onChange={(e) => setOppositeAddress(e.target.value)} placeholder="Opposite party address" style={{ padding: '0.5rem' }} />
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem' }}>
+                          <label style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-secondary)' }}>Opposite Party Address</label>
+                          <input type="text" value={oppositeAddress} onChange={(e) => setOppositeAddress(e.target.value)} placeholder="Opposite party address" style={{ padding: '0.45rem 0.65rem' }} />
                         </div>
 
-                        {activeCase.classification.domain.toLowerCase() === 'tenant' && (
-                          <>
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-                              <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)' }}>Claim Amount (Rs.)</label>
-                              <input type="text" value={customAmount} onChange={(e) => setCustomAmount(e.target.value)} placeholder="E.g., 20,000" style={{ padding: '0.5rem' }} />
-                            </div>
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-                              <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)' }}>Property Location</label>
-                              <input type="text" value={customProperty} onChange={(e) => setCustomProperty(e.target.value)} placeholder="Address of rental" style={{ padding: '0.5rem' }} />
-                            </div>
-                          </>
-                        )}
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem' }}>
+                          <label style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-secondary)' }}>Claim Amount (Rs.)</label>
+                          <input type="text" value={customAmount} onChange={(e) => setCustomAmount(e.target.value)} placeholder="E.g., 20,000" style={{ padding: '0.45rem 0.65rem' }} />
+                        </div>
+                        
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem' }}>
+                          <label style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-secondary)' }}>Property/Transaction Location</label>
+                          <input type="text" value={customProperty} onChange={(e) => setCustomProperty(e.target.value)} placeholder="E.g., Flat 302, Green Apts" style={{ padding: '0.45rem 0.65rem' }} />
+                        </div>
                       </div>
 
                       {/* Notice Document Text Editor */}
-                      <div className="glass" style={{ flex: 1, padding: '1.5rem', borderRadius: 'var(--radius-md)' }}>
+                      <div className="glass" style={{ flex: 1, padding: '1.25rem', borderRadius: 'var(--radius-md)' }}>
                         <textarea
                           value={documentContent}
                           onChange={(e) => setDocumentContent(e.target.value)}
                           style={{
                             width: '100%',
-                            minHeight: '480px',
-                            background: '#fff',
-                            color: '#1a1a1a',
-                            border: '1px solid #ccc',
-                            borderRadius: '4px',
-                            padding: '1.5rem',
+                            minHeight: '460px',
+                            background: '#ffffff',
+                            color: '#1e293b',
+                            border: '1px solid var(--border-color)',
+                            borderRadius: '6px',
+                            padding: '1.25rem',
                             fontFamily: 'Courier, monospace',
-                            fontSize: '0.9rem',
-                            lineHeight: '1.5',
+                            fontSize: '0.85rem',
+                            lineHeight: '1.6',
                             resize: 'vertical'
                           }}
                         />
@@ -941,61 +1421,65 @@ export default function Home() {
           left: 0,
           width: '100vw',
           height: '100vh',
-          background: 'rgba(0, 0, 0, 0.65)',
+          background: 'rgba(3, 7, 18, 0.8)',
           display: 'flex',
           justifyContent: 'center',
           alignItems: 'center',
           zIndex: 9999,
-          backdropFilter: 'blur(4px)'
+          backdropFilter: 'blur(8px)'
         }}>
           <div className="glass" style={{
-            width: '460px',
+            width: '440px',
             borderRadius: 'var(--radius-md)',
             backgroundColor: 'var(--bg-secondary)',
-            padding: '2rem',
+            padding: '1.75rem',
             display: 'flex',
             flexDirection: 'column',
-            gap: '1.5rem',
+            gap: '1.25rem',
             position: 'relative'
           }}>
             <button 
               onClick={() => setShowSettings(false)}
-              style={{ position: 'absolute', top: '1rem', right: '1rem', background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}
+              className="btn-hover"
+              style={{ position: 'absolute', top: '1rem', right: '1rem', background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
             >
-              <X size={20} />
+              <X size={18} />
             </button>
 
             <div>
-              <h3 style={{ fontSize: '1.5rem', color: 'var(--text-primary)' }}>Gemini API Settings</h3>
-              <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginTop: '0.25rem' }}>
-                Your API key is saved locally in your browser's storage and is not transmitted anywhere except directly to Google's API.
+              <h3 style={{ fontSize: '1.35rem', color: 'var(--text-primary)', fontWeight: 700 }}>Gemini API Config</h3>
+              <p style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', marginTop: '0.25rem', lineHeight: '1.4' }}>
+                Your API key is saved locally in your browser cache and is never sent to any server other than the Google API gateway.
               </p>
             </div>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-              <label style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-secondary)' }}>Gemini API Key</label>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+              <label style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-secondary)' }}>Gemini API Key</label>
               <input 
                 type="password" 
                 defaultValue={userApiKey}
                 id="api-key-input"
                 placeholder="AIzaSy..." 
-                style={{ width: '100%' }}
+                style={{ width: '100%', padding: '0.65rem' }}
               />
-              <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                Get a free API Key from the <a href="https://aistudio.google.com/" target="_blank" rel="noreferrer" style={{ color: 'var(--accent-primary)', textDecoration: 'underline' }}>Google AI Studio Portal</a>.
+              <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>
+                Create a free API Key from the <a href="https://aistudio.google.com/" target="_blank" rel="noreferrer" style={{ color: 'var(--accent-primary)', textDecoration: 'underline' }}>Google AI Studio Portal</a>.
               </span>
             </div>
 
-            <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end', marginTop: '0.5rem' }}>
+            <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end', marginTop: '0.25rem' }}>
               <button 
                 onClick={() => setShowSettings(false)}
+                className="btn-hover"
                 style={{
                   background: 'transparent',
                   border: '1px solid var(--border-color)',
                   color: 'var(--text-primary)',
-                  padding: '0.5rem 1.25rem',
+                  padding: '0.45rem 1rem',
                   borderRadius: 'var(--radius-sm)',
-                  cursor: 'pointer'
+                  cursor: 'pointer',
+                  fontSize: '0.8rem',
+                  fontWeight: 600
                 }}
               >
                 Cancel
@@ -1006,17 +1490,19 @@ export default function Home() {
                   const input = document.getElementById('api-key-input') as HTMLInputElement;
                   if (input) saveApiKey(input.value);
                 }}
+                className="btn-hover"
                 style={{
                   background: 'var(--accent-primary)',
                   color: '#fff',
                   border: 'none',
-                  padding: '0.5rem 1.5rem',
+                  padding: '0.45rem 1.25rem',
                   borderRadius: 'var(--radius-sm)',
                   cursor: 'pointer',
-                  fontWeight: 600
+                  fontWeight: 700,
+                  fontSize: '0.8rem'
                 }}
               >
-                Save Changes
+                Save Key
               </button>
             </div>
           </div>

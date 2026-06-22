@@ -54,8 +54,8 @@ function run() {
       allChunks = allChunks.concat(chunks);
     }
 
-    // Create mock 768-dimension vectors (all 0.05)
-    const mockVector = Array(768).fill(0.05);
+    // Create mock 3072-dimension vectors (all 0.05)
+    const mockVector = Array(3072).fill(0.05);
 
     const vectorDb = allChunks.map(chunk => ({
       category: chunk.category,

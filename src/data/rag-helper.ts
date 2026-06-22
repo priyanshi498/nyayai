@@ -99,7 +99,7 @@ export async function retrieveRelevantContext(
 
     console.log('Performing Semantic Vector Search using Gemini embeddings...');
     const genAI = new GoogleGenerativeAI(effectiveKey);
-    const embeddingModel = genAI.getGenerativeModel({ model: 'text-embedding-004' });
+    const embeddingModel = genAI.getGenerativeModel({ model: 'gemini-embedding-2' });
 
     const embeddingResult = await embeddingModel.embedContent(query);
     const queryVector = embeddingResult.embedding.values;
