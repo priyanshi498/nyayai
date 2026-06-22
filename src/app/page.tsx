@@ -26,7 +26,8 @@ import {
   Check,
   User,
   Building,
-  DollarSign
+  DollarSign,
+  Menu
 } from 'lucide-react';
 
 interface Classification {
@@ -328,6 +329,7 @@ function parseChecklistSteps(actionPlanText: string): string[] {
 
 export default function Home() {
   const [problem, setProblem] = useState('');
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [language, setLanguage] = useState('en');
   const [userApiKey, setUserApiKey] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -546,6 +548,7 @@ export default function Home() {
     setCustomProperty(cData.customProperty || 'Flat 302, Green Apartments, Delhi');
     
     setActiveTab('overview');
+    setIsSidebarOpen(false);
   };
 
   const updateCaseInHistory = (updates: Partial<AnalysisResult>) => {
@@ -883,10 +886,17 @@ export default function Home() {
     : 0;
 
   return (
-    <div className="app-container" style={{ display: 'flex', height: '100vh', width: '100vw', overflow: 'hidden' }}>
+    <div className="app-container">
+      {/* Mobile Sidebar Backdrop Overlay */}
+      {isSidebarOpen && (
+        <div 
+          className="sidebar-overlay"
+          onClick={() => setIsSidebarOpen(false)}
+        />
+      )}
       
       {/* 1. SIDEBAR (Left) */}
-      <div className="sidebar glass" style={{ width: '290px', display: 'flex', flexDirection: 'column', borderRight: '1px solid var(--border-color)', backgroundColor: 'var(--bg-secondary)', zIndex: 10 }}>
+      <div className={`sidebar glass ${isSidebarOpen ? 'open' : ''}`}>
         
         {/* Brand Header */}
         <div style={{ padding: '1.25rem', borderBottom: '1px solid var(--border-color)', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
@@ -906,6 +916,7 @@ export default function Home() {
               setActiveCaseId(null);
               setProblem('');
               setDocumentContent('');
+              setIsSidebarOpen(false);
             }}
             className="btn-new btn-hover"
             style={{
@@ -1018,45 +1029,78 @@ export default function Home() {
       </div>
 
       {/* 2. MAIN CONTENT AREA */}
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', backgroundColor: 'var(--bg-primary)', overflow: 'hidden' }}>
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', backgroundColor: 'var(--bg-primary)', overflow: 'hidden', minWidth: 0 }}>
         
         {/* Main Header */}
-        <div className="glass" style={{ padding: '0.75rem 2rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-color)' }}>
-          <div>
-            <span style={{ fontSize: '0.7rem', color: 'var(--accent-primary)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Indian Legal System AI</span>
-            <h2 style={{ fontSize: '1.15rem', color: 'var(--text-primary)', fontWeight: 600 }}>
-              {activeCase ? `${activeCase.classification.domain} Redressal Desk` : 'AI Legal Consult'}
-            </h2>
+        <div className="main-header glass">
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+            <button 
+              className="sidebar-toggle"
+              onClick={() => setIsSidebarOpen(true)}
+              title="Open Sidebar"
+            >
+              <Menu size={20} />
+            </button>
+            <div>
+              <span style={{ fontSize: '0.7rem', color: 'var(--accent-primary)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Indian Legal System AI</span>
+              <h2 style={{ fontSize: '1.15rem', color: 'var(--text-primary)', fontWeight: 600 }}>
+                {activeCase ? `${activeCase.classification.domain} Redressal Desk` : 'AI Legal Consult'}
+              </h2>
+            </div>
           </div>
           
-          {/* Quick Language Toggle */}
-          <div style={{ display: 'flex', gap: '0.25rem', background: 'var(--bg-secondary)', padding: '0.25rem', borderRadius: '6px' }}>
-            {['en', 'hi', 'hinglish'].map(lang => (
-              <button 
-                key={lang}
-                onClick={() => setLanguage(lang)}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+            {activeCase && (
+              <button
+                onClick={handleDownloadPDF}
+                className="btn-hover header-download-btn"
                 style={{
-                  padding: '0.25rem 0.6rem',
+                  background: 'var(--accent-success)',
+                  color: '#fff',
                   border: 'none',
-                  borderRadius: '4px',
-                  fontSize: '0.72rem',
-                  fontWeight: 700,
+                  padding: '0.4rem 0.8rem',
+                  borderRadius: 'var(--radius-sm)',
                   cursor: 'pointer',
-                  background: language === lang ? 'var(--accent-primary)' : 'transparent',
-                  color: language === lang ? '#fff' : 'var(--text-secondary)'
+                  fontWeight: 700,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.35rem',
+                  fontSize: '0.72rem'
                 }}
               >
-                {lang === 'en' ? 'English' : lang === 'hi' ? 'हिंदी' : 'Hinglish'}
+                <Download size={13} /> <span>Download PDF</span>
               </button>
-            ))}
+            )}
+
+            {/* Quick Language Toggle */}
+            <div className="lang-toggle-wrap">
+              {['en', 'hi', 'hinglish'].map(lang => (
+                <button 
+                  key={lang}
+                  onClick={() => setLanguage(lang)}
+                  style={{
+                    padding: '0.25rem 0.6rem',
+                    border: 'none',
+                    borderRadius: '4px',
+                    fontSize: '0.72rem',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    background: language === lang ? 'var(--accent-primary)' : 'transparent',
+                    color: language === lang ? '#fff' : 'var(--text-secondary)'
+                  }}
+                >
+                  {lang === 'en' ? 'English' : lang === 'hi' ? 'हिंदी' : 'Hinglish'}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
 
         {/* Main Body */}
-        <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
+        <div style={{ flex: 1, display: 'flex', overflow: 'hidden', minWidth: 0 }}>
           
           {/* Case Consult Interface / Result Split */}
-          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflowY: 'auto', padding: '1.5rem 2rem' }}>
+          <div className="main-content-scroll">
             
             {!activeCase && !isLoading ? (
               // Empty State Landing Form with Dashboard Statistics
@@ -1064,7 +1108,7 @@ export default function Home() {
                 
                 {/* Dashboard Stats Panel */}
                 {totalConsultations > 0 && (
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1rem', marginBottom: '2rem' }}>
+                  <div className="dashboard-stats-grid">
                     <div className="metric-card glass">
                       <div className="metric-icon-wrap">
                         <Scale size={20} color="var(--accent-primary)" />
@@ -1236,7 +1280,7 @@ export default function Home() {
                   <h4 style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.65rem', display: 'flex', alignItems: 'center', gap: '0.3rem', fontWeight: 700 }}>
                     <Info size={11} /> Common Legal Scenarios
                   </h4>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+                  <div className="common-scenarios-grid">
                     <div 
                       className="glass history-item" 
                       style={{ padding: '0.75rem', borderRadius: 'var(--radius-sm)', cursor: 'pointer' }} 
@@ -1329,9 +1373,8 @@ export default function Home() {
             ) : (
               // Results Display (Interactive Tabs)
               <div className="animate-slide" style={{ width: '100%' }}>
-                
-                {/* Result Tabs Navigation */}
-                <div style={{ display: 'flex', borderBottom: '1px solid var(--border-color)', marginBottom: '1.25rem', gap: '1.5rem' }}>
+                     {/* Result Tabs Navigation */}
+                <div className="tabs-header">
                   {[
                     { id: 'overview', label: 'Case Overview', icon: Scale },
                     { id: 'rights', label: 'Rights Explained', icon: Info },
@@ -1345,6 +1388,7 @@ export default function Home() {
                       <button
                         key={tab.id}
                         onClick={() => setActiveTab(tab.id as any)}
+                        className={`tab-btn ${isActive ? 'active' : ''}`}
                         style={{
                           display: 'flex',
                           alignItems: 'center',
@@ -1369,7 +1413,7 @@ export default function Home() {
                 {/* Tab Contents */}
                 {activeTab === 'overview' && activeCase && (
                   <div className="animate-slide" style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-                    <div style={{ display: 'flex', gap: '1.25rem' }}>
+                    <div className="overview-cards-row">
                       <div className="glass" style={{ flex: 1, padding: '1.25rem', borderRadius: 'var(--radius-md)' }}>
                         <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.02em' }}>Detected Domain</span>
                         <h3 style={{ fontSize: '1.35rem', color: 'var(--text-primary)', marginTop: '0.2rem', fontWeight: 700 }}>{activeCase.classification.domain}</h3>
@@ -1435,10 +1479,10 @@ export default function Home() {
 
                 {/* Enhanced Action Timeline tab */}
                 {activeTab === 'action' && activeCase && (
-                  <div className="animate-slide" style={{ display: 'flex', gap: '1.5rem', alignItems: 'flex-start' }}>
+                  <div className="action-checklist-container animate-slide">
                     
                     {/* Left: Progress Circular Display */}
-                    <div className="glass" style={{ width: '240px', padding: '1.5rem', borderRadius: 'var(--radius-md)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem', textAlign: 'center' }}>
+                    <div className="glass progress-ring-card" style={{ width: '240px', padding: '1.5rem', borderRadius: 'var(--radius-md)', display: 'flex', flexDirection: 'column', gap: '1rem', textAlign: 'center' }}>
                       <h4 style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase' }}>Timeline Progress</h4>
                       
                       {/* CSS progress ring */}
@@ -1520,12 +1564,12 @@ export default function Home() {
                 {activeTab === 'document' && activeCase && (
                   <div className="animate-slide" style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
                     
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div className="document-actions-header">
                       <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
                         Fill out details in the tabs below. The legal notice draft will update dynamically in real time.
                       </p>
                       
-                      <div style={{ display: 'flex', gap: '0.5rem' }}>
+                      <div className="document-actions-buttons" style={{ display: 'flex', gap: '0.5rem' }}>
                         <button 
                           onClick={handleCopyNotice}
                           className="btn-hover"
@@ -1567,10 +1611,10 @@ export default function Home() {
                       </div>
                     </div>
 
-                    <div style={{ display: 'flex', gap: '1.5rem', alignItems: 'flex-start' }}>
+                    <div className="document-layout-container">
                       
                       {/* Notice Customizer Form Wizard */}
-                      <div className="glass" style={{ width: '320px', padding: '1rem', borderRadius: 'var(--radius-md)', display: 'flex', flexDirection: 'column', gap: '1rem', height: 'fit-content' }}>
+                      <div className="glass wizard-editor-card" style={{ width: '320px', padding: '1rem', borderRadius: 'var(--radius-md)', display: 'flex', flexDirection: 'column', gap: '1rem', height: 'fit-content' }}>
                         <h4 style={{ fontSize: '0.9rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.4rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
                           <Settings size={14} color="var(--accent-primary)" /> Wizard Editor
                         </h4>
@@ -1782,16 +1826,7 @@ export default function Home() {
           zIndex: 9999,
           backdropFilter: 'blur(8px)'
         }}>
-          <div className="glass" style={{
-            width: '440px',
-            borderRadius: 'var(--radius-md)',
-            backgroundColor: 'var(--bg-secondary)',
-            padding: '1.75rem',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '1.25rem',
-            position: 'relative'
-          }}>
+          <div className="settings-modal-dialog glass">
             <button 
               onClick={() => setShowSettings(false)}
               className="btn-hover"

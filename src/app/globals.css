@@ -435,3 +435,338 @@ input:focus, textarea:focus, select:focus {
   transition: stroke-dashoffset 0.35s;
   transform-origin: 50% 50%;
 }
+
+/* --- RESPONSIVE LAYOUT STYLES --- */
+
+/* App Container */
+.app-container {
+  display: flex;
+  height: 100vh;
+  width: 100vw;
+  overflow: hidden;
+  position: relative;
+}
+
+/* Sidebar Responsive Styles */
+.sidebar {
+  width: 290px;
+  display: flex;
+  flex-direction: column;
+  border-right: 1px solid var(--border-color);
+  background-color: var(--bg-secondary);
+  z-index: 100;
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.sidebar-overlay {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  .sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    height: 100%;
+    transform: translateX(-100%);
+    box-shadow: 20px 0 30px rgba(0, 0, 0, 0.3);
+  }
+  
+  .sidebar.open {
+    transform: translateX(0);
+  }
+  
+  .sidebar-overlay {
+    display: block;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(3, 7, 18, 0.4);
+    backdrop-filter: blur(4px);
+    z-index: 99;
+  }
+}
+
+/* Main Content Area */
+.main-content-scroll {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  padding: 1.5rem 2rem;
+}
+
+@media (max-width: 768px) {
+  .main-content-scroll {
+    padding: 1rem;
+  }
+}
+
+/* Main Header */
+.main-header {
+  padding: 0.75rem 2rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.sidebar-toggle {
+  display: none;
+  background: transparent;
+  border: none;
+  color: var(--text-primary);
+  cursor: pointer;
+  align-items: center;
+  justify-content: center;
+  padding: 0.25rem;
+  border-radius: var(--radius-sm);
+  transition: background-color 0.2s;
+}
+
+.sidebar-toggle:hover {
+  background: var(--bg-tertiary);
+}
+
+@media (max-width: 768px) {
+  .main-header {
+    padding: 0.75rem 1rem;
+  }
+  
+  .sidebar-toggle {
+    display: flex;
+  }
+}
+
+/* Quick language toggle responsive */
+.lang-toggle-wrap {
+  display: flex;
+  gap: 0.25rem;
+  background: var(--bg-secondary);
+  padding: 0.25rem;
+  border-radius: 6px;
+}
+
+@media (max-width: 480px) {
+  .lang-toggle-wrap button {
+    padding: 0.25rem 0.4rem !important;
+    font-size: 0.65rem !important;
+  }
+}
+
+/* Dashboard Stats Grid */
+.dashboard-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1rem;
+  margin-bottom: 2rem;
+}
+
+@media (max-width: 768px) {
+  .dashboard-stats-grid {
+    grid-template-columns: 1fr;
+    gap: 0.75rem;
+    margin-bottom: 1.5rem;
+  }
+}
+
+/* Common Scenarios Grid */
+.common-scenarios-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+}
+
+@media (max-width: 600px) {
+  .common-scenarios-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Results Navigation Tabs */
+.tabs-header {
+  display: flex;
+  border-bottom: 1px solid var(--border-color);
+  margin-bottom: 1.25rem;
+  gap: 1.5rem;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+
+.tabs-header::-webkit-scrollbar {
+  display: none;
+}
+
+.tab-btn {
+  white-space: nowrap;
+  flex-shrink: 0;
+  border-bottom: 2px solid transparent;
+  transition: all 0.25s ease;
+}
+
+@media (max-width: 768px) {
+  .tabs-header {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    border-bottom: none;
+  }
+  .tab-btn {
+    flex: 1 1 calc(50% - 0.5rem);
+    min-width: 120px;
+    justify-content: center;
+    background: var(--bg-secondary) !important;
+    border: 1px solid var(--border-color) !important;
+    border-radius: var(--radius-sm);
+    padding: 0.6rem 0.8rem !important;
+    font-size: 0.76rem !important;
+    color: var(--text-secondary) !important;
+    border-bottom: 1px solid var(--border-color) !important;
+  }
+  .tab-btn.active {
+    background: var(--accent-glow) !important;
+    border-color: var(--accent-primary) !important;
+    color: var(--accent-primary) !important;
+    box-shadow: 0 0 10px var(--accent-glow);
+  }
+}
+
+/* Overview Tab Cards */
+.overview-cards-row {
+  display: flex;
+  gap: 1.25rem;
+}
+
+@media (max-width: 600px) {
+  .overview-cards-row {
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+}
+
+/* Action Checklist Container */
+.action-checklist-container {
+  display: flex;
+  gap: 1.5rem;
+  align-items: flex-start;
+}
+
+@media (max-width: 768px) {
+  .action-checklist-container {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 1rem;
+  }
+  
+  .progress-ring-card {
+    width: 100% !important;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+}
+
+/* Document Tab Layout */
+.document-layout-container {
+  display: flex;
+  gap: 1.5rem;
+  align-items: flex-start;
+}
+
+@media (max-width: 992px) {
+  .document-layout-container {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 1.25rem;
+  }
+  
+  .wizard-editor-card {
+    width: 100% !important;
+  }
+}
+
+/* Document Actions Header */
+.document-actions-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+@media (max-width: 600px) {
+  .document-actions-header {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.75rem;
+  }
+  
+  .document-actions-header p {
+    text-align: center;
+  }
+  
+  .document-actions-buttons {
+    display: flex;
+    justify-content: center;
+    gap: 0.5rem;
+    width: 100%;
+  }
+  
+  .document-actions-buttons button {
+    flex: 1;
+    justify-content: center;
+  }
+}
+
+/* Paper Sheet Mobile Padding */
+@media (max-width: 768px) {
+  .paper-sheet {
+    padding: 1.5rem 1.5rem 1.5rem 2rem !important;
+    font-size: 0.95rem !important;
+    min-height: 400px !important;
+  }
+}
+
+/* Settings Modal Dialog Responsive */
+.settings-modal-dialog {
+  width: 440px;
+  max-width: 90%;
+  border-radius: var(--radius-md);
+  background-color: var(--bg-secondary);
+  padding: 1.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  position: relative;
+}
+
+@media (max-width: 480px) {
+  .settings-modal-dialog {
+    padding: 1.25rem;
+    gap: 1rem;
+  }
+}
+
+/* Header download button styling */
+.header-download-btn {
+  transition: all 0.2s ease;
+}
+
+@media (max-width: 480px) {
+  .header-download-btn span {
+    display: none;
+  }
+  .header-download-btn {
+    padding: 0.45rem !important;
+    border-radius: 50% !important;
+    aspect-ratio: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+}
+
