@@ -526,10 +526,7 @@ export default function Home() {
 
   const runAnalysis = async (forceDemo = false) => {
     const apiToUse = userApiKey.trim();
-    if (!apiToUse && !forceDemo) {
-      setShowSettings(true);
-      return;
-    }
+    // Do not block; let the backend attempt to use its configured key if the user has not pasted one locally.
 
     setIsLoading(true);
     setCurrentStep(1);
@@ -691,6 +688,9 @@ export default function Home() {
       }
     } catch (error: any) {
       alert(`Analysis failed: ${error.message}`);
+      if (error.message.toLowerCase().includes('api key') || error.message.toLowerCase().includes('key is missing')) {
+        setShowSettings(true);
+      }
     } finally {
       setIsLoading(false);
       setCurrentStep(0);
